@@ -77,6 +77,7 @@ enum class LinkTarget {
     ExclusiveWriteMemory128,
     CallSVC,
     ExceptionRaised,
+    InterpreterFallback,
     InstructionSynchronizationBarrierRaised,
     InstructionCacheOperationRaised,
     DataCacheOperationRaised,
@@ -164,9 +165,12 @@ struct EmitConfig {
 
     // Debugging
     bool very_verbose_debugging_output;
+
+    bool read_page_table_in_register = false;
+    bool link_coprocessor_user_arg = false;
 };
 
-EmittedBlockInfo EmitArm64(oaknut::CodeGenerator& code, IR::Block block, const EmitConfig& emit_conf, FastmemManager& fastmem_manager);
+EmittedBlockInfo EmitArm64(oaknut::CodeGenerator& code, IR::Block& block, const EmitConfig& emit_conf, FastmemManager& fastmem_manager);
 
 template<IR::Opcode op>
 void EmitIR(oaknut::CodeGenerator& code, EmitContext& ctx, IR::Inst* inst);

@@ -5,8 +5,11 @@
 
 #pragma once
 
+#include <cstdint>
 #include <map>
 #include <optional>
+#include <string>
+#include <vector>
 
 #include <mcl/stdint.hpp>
 #include <oaknut/code_block.hpp>
@@ -45,7 +48,41 @@ public:
 
     void DumpDisassembly() const;
 
+    std::vector<std::string> Disassemble() const;
+
     size_t GetCodeCacheUsed() const;
+
+    struct RetiredCodeStats {
+        std::size_t descriptors{};
+        std::uint64_t code_bytes{};
+    };
+
+    EmittedBlockInfo EmitBlock(IR::Block& ir_block);
+
+    void SetDeferBlockRelinks(bool defer) { defer_block_relinks = defer; }
+
+    void PublishPendingBlockRelinks();
+
+    RetiredCodeStats RetireCodeRange(CodePtr begin, CodePtr end, tsl::robin_set<IR::LocationDescriptor>& retired_locations);
+
+    CodePtr CodeBegin() const { return reinterpret_cast<CodePtr>(mem.ptr()); }
+
+    CodePtr CodeEndOfPrelude() const { return CodeBegin() + prelude_info.end_of_prelude; }
+
+    CodePtr CurrentCodePtr() const { return code.xptr<CodePtr>(); }
+
+    void SetCurrentCodePtr(CodePtr ptr) { code.set_offset(ptr - CodeBegin()); }
+
+    size_t CodeCacheSize() const { return code_cache_size; }
+
+    std::uint64_t RetiredCodeBytes() const { return retired_code_bytes; }
+
+    void* ReturnFromRunCodeAddress() const { return prelude_info.return_from_run_code; }
+
+    size_t GetBlockSize(CodePtr entry_point) const {
+        const auto iter = block_infos.find(entry_point);
+        return iter != block_infos.end() ? iter->second.size : 0;
+    }
 
 protected:
     virtual EmitConfig GetEmitConfig() = 0;
@@ -81,6 +118,10 @@ protected:
     std::map<CodePtr, IR::LocationDescriptor> reverse_block_entries;
     tsl::robin_map<CodePtr, EmittedBlockInfo> block_infos;
     tsl::robin_map<IR::LocationDescriptor, tsl::robin_set<CodePtr>> block_references;
+
+    bool defer_block_relinks = false;
+    tsl::robin_set<IR::LocationDescriptor> pending_block_relinks;
+    std::uint64_t retired_code_bytes = 0;
 
     ExceptionHandler exception_handler;
     FastmemManager fastmem_manager;
@@ -129,6 +170,7 @@ protected:
 
         void* call_svc;
         void* exception_raised;
+        void* interpreter_fallback;
         void* dc_raised;
         void* ic_raised;
         void* isb_raised;

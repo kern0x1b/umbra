@@ -6,6 +6,7 @@
 #pragma once
 
 #include <array>
+#include <atomic>
 
 #include <mcl/stdint.hpp>
 
@@ -25,11 +26,27 @@ struct A32JitState {
 
     std::array<u32, 16> regs{};
 
-    u32 upper_location_descriptor;
+    u32 upper_location_descriptor = 0;
 
     alignas(16) std::array<u32, 64> ext_regs{};
 
     u32 exclusive_state = 0;
+
+    volatile u32 halt_reason = 0;
+
+    u32 host_execution_block_budget = 0;
+    u32 host_execution_block_budget_initial = 0;
+    u32 host_execution_budget_exhausted = 0;
+
+    const std::atomic<u64>* callbacks_link = nullptr;
+    const std::atomic<u64>* lookup_link = nullptr;
+    const std::atomic<u64>* runtime_config_link = nullptr;
+    const std::atomic<u64>* page_table_link = nullptr;
+    const std::atomic<u64>* read_page_table_link = nullptr;
+    const std::atomic<u64>* coprocessor_user_arg_link = nullptr;
+
+    u64 rsb_hits = 0;
+    u64 rsb_misses = 0;
 
     u32 Cpsr() const;
     void SetCpsr(u32 cpsr);

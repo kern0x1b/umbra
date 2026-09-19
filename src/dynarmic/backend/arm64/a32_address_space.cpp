@@ -20,16 +20,40 @@
 
 namespace Dynarmic::Backend::Arm64 {
 
-template<auto mfp, typename T>
-static void* EmitCallTrampoline(oaknut::CodeGenerator& code, T* this_) {
+static void EmitLoadLinkedPointer(oaknut::CodeGenerator& code, oaknut::XReg destination, std::size_t link_offset) {
+    code.LDR(destination, Xstate, link_offset);
+    code.LDR(destination, destination, 0);
+}
+
+template<auto mfp>
+static void EmitLoadCallbackObject(oaknut::CodeGenerator& code, const A32::UserConfig& conf, oaknut::Label& l_this) {
     using namespace oaknut::util;
 
-    const auto info = Devirtualize<mfp>(this_);
+    if (!conf.callbacks_link) {
+        code.LDR(X0, l_this);
+        return;
+    }
+
+    const auto info = Devirtualize<mfp>(conf.callbacks);
+    const u64 adjustment = info.this_ptr - mcl::bit_cast<u64>(conf.callbacks);
+
+    EmitLoadLinkedPointer(code, X0, offsetof(A32JitState, callbacks_link));
+    if (adjustment != 0) {
+        code.MOV(Xscratch1, adjustment);
+        code.ADD(X0, X0, Xscratch1);
+    }
+}
+
+template<auto mfp>
+static void* EmitCallTrampoline(oaknut::CodeGenerator& code, const A32::UserConfig& conf) {
+    using namespace oaknut::util;
+
+    const auto info = Devirtualize<mfp>(conf.callbacks);
 
     oaknut::Label l_addr, l_this;
 
     void* target = code.xptr<void*>();
-    code.LDR(X0, l_this);
+    EmitLoadCallbackObject<mfp>(code, conf, l_this);
     code.LDR(Xscratch0, l_addr);
     code.BR(Xscratch0);
 
@@ -42,11 +66,11 @@ static void* EmitCallTrampoline(oaknut::CodeGenerator& code, T* this_) {
     return target;
 }
 
-template<auto mfp, typename T>
-static void* EmitWrappedReadCallTrampoline(oaknut::CodeGenerator& code, T* this_) {
+template<auto mfp>
+static void* EmitWrappedReadCallTrampoline(oaknut::CodeGenerator& code, const A32::UserConfig& conf) {
     using namespace oaknut::util;
 
-    const auto info = Devirtualize<mfp>(this_);
+    const auto info = Devirtualize<mfp>(conf.callbacks);
 
     oaknut::Label l_addr, l_this;
 
@@ -54,8 +78,8 @@ static void* EmitWrappedReadCallTrampoline(oaknut::CodeGenerator& code, T* this_
 
     void* target = code.xptr<void*>();
     ABI_PushRegisters(code, save_regs, 0);
-    code.LDR(X0, l_this);
     code.MOV(X1, Xscratch0);
+    EmitLoadCallbackObject<mfp>(code, conf, l_this);
     code.LDR(Xscratch0, l_addr);
     code.BLR(Xscratch0);
     code.MOV(Xscratch0, X0);
@@ -71,6 +95,16 @@ static void* EmitWrappedReadCallTrampoline(oaknut::CodeGenerator& code, T* this_
     return target;
 }
 
+static void EmitLoadRuntimeConfig(oaknut::CodeGenerator& code, const A32::UserConfig& conf, oaknut::Label& l_this) {
+    using namespace oaknut::util;
+
+    if (conf.runtime_config_link) {
+        EmitLoadLinkedPointer(code, X0, offsetof(A32JitState, runtime_config_link));
+    } else {
+        code.LDR(X0, l_this);
+    }
+}
+
 template<auto callback, typename T>
 static void* EmitExclusiveReadCallTrampoline(oaknut::CodeGenerator& code, const A32::UserConfig& conf) {
     using namespace oaknut::util;
@@ -78,13 +112,14 @@ static void* EmitExclusiveReadCallTrampoline(oaknut::CodeGenerator& code, const 
     oaknut::Label l_addr, l_this;
 
     auto fn = [](const A32::UserConfig& conf, A32::VAddr vaddr) -> T {
+        conf.callbacks->MemoryReadExclusive(vaddr, sizeof(T));
         return conf.global_monitor->ReadAndMark<T>(conf.processor_id, vaddr, [&]() -> T {
             return (conf.callbacks->*callback)(vaddr);
         });
     };
 
     void* target = code.xptr<void*>();
-    code.LDR(X0, l_this);
+    EmitLoadRuntimeConfig(code, conf, l_this);
     code.LDR(Xscratch0, l_addr);
     code.BR(Xscratch0);
 
@@ -97,11 +132,11 @@ static void* EmitExclusiveReadCallTrampoline(oaknut::CodeGenerator& code, const 
     return target;
 }
 
-template<auto mfp, typename T>
-static void* EmitWrappedWriteCallTrampoline(oaknut::CodeGenerator& code, T* this_) {
+template<auto mfp>
+static void* EmitWrappedWriteCallTrampoline(oaknut::CodeGenerator& code, const A32::UserConfig& conf) {
     using namespace oaknut::util;
 
-    const auto info = Devirtualize<mfp>(this_);
+    const auto info = Devirtualize<mfp>(conf.callbacks);
 
     oaknut::Label l_addr, l_this;
 
@@ -109,9 +144,9 @@ static void* EmitWrappedWriteCallTrampoline(oaknut::CodeGenerator& code, T* this
 
     void* target = code.xptr<void*>();
     ABI_PushRegisters(code, save_regs, 0);
-    code.LDR(X0, l_this);
     code.MOV(X1, Xscratch0);
     code.MOV(X2, Xscratch1);
+    EmitLoadCallbackObject<mfp>(code, conf, l_this);
     code.LDR(Xscratch0, l_addr);
     code.BLR(Xscratch0);
     ABI_PopRegisters(code, save_regs, 0);
@@ -142,7 +177,7 @@ static void* EmitExclusiveWriteCallTrampoline(oaknut::CodeGenerator& code, const
     };
 
     void* target = code.xptr<void*>();
-    code.LDR(X0, l_this);
+    EmitLoadRuntimeConfig(code, conf, l_this);
     code.LDR(Xscratch0, l_addr);
     code.BR(Xscratch0);
 
@@ -158,6 +193,14 @@ static void* EmitExclusiveWriteCallTrampoline(oaknut::CodeGenerator& code, const
 A32AddressSpace::A32AddressSpace(const A32::UserConfig& conf)
         : AddressSpace(conf.code_cache_size)
         , conf(conf) {
+    EmitPrelude();
+}
+
+A32AddressSpace::A32AddressSpace(const A32::UserConfig& conf, LookupBlockFunction lookup, void* lookup_arg)
+        : AddressSpace(conf.code_cache_size)
+        , conf(conf)
+        , lookup_block(lookup)
+        , lookup_block_arg(lookup_arg) {
     EmitPrelude();
 }
 
@@ -186,8 +229,26 @@ IR::Block A32AddressSpace::GenerateIR(IR::LocationDescriptor descriptor) const {
     return ir_block;
 }
 
-void A32AddressSpace::InvalidateCacheRanges(const boost::icl::interval_set<u32>& ranges) {
-    InvalidateBasicBlocks(block_ranges.InvalidateRanges(ranges));
+tsl::robin_set<IR::LocationDescriptor> A32AddressSpace::InvalidateCacheRanges(const boost::icl::interval_set<u32>& ranges) {
+    auto locations = block_ranges.InvalidateRanges(ranges);
+    InvalidateBasicBlocks(locations);
+    return locations;
+}
+
+void A32AddressSpace::ClearCacheAndRanges() {
+    ClearCache();
+    block_ranges.ClearCache();
+}
+
+AddressSpace::RetiredCodeStats A32AddressSpace::RetireCodeRangeAndRanges(CodePtr begin, CodePtr end) {
+    tsl::robin_set<IR::LocationDescriptor> locations;
+    const auto stats = RetireCodeRange(begin, end, locations);
+    block_ranges.InvalidateLocations(locations);
+    return stats;
+}
+
+bool A32AddressSpace::ReadPageTableInRegister() const {
+    return !conf.fastmem_pointer && conf.read_page_table != nullptr && (conf.read_page_table_link != nullptr || conf.read_page_table != conf.page_table);
 }
 
 void A32AddressSpace::EmitPrelude() {
@@ -195,39 +256,59 @@ void A32AddressSpace::EmitPrelude() {
 
     UnprotectCodeMemory();
 
-    prelude_info.read_memory_8 = EmitCallTrampoline<&A32::UserCallbacks::MemoryRead8>(code, conf.callbacks);
-    prelude_info.read_memory_16 = EmitCallTrampoline<&A32::UserCallbacks::MemoryRead16>(code, conf.callbacks);
-    prelude_info.read_memory_32 = EmitCallTrampoline<&A32::UserCallbacks::MemoryRead32>(code, conf.callbacks);
-    prelude_info.read_memory_64 = EmitCallTrampoline<&A32::UserCallbacks::MemoryRead64>(code, conf.callbacks);
-    prelude_info.wrapped_read_memory_8 = EmitWrappedReadCallTrampoline<&A32::UserCallbacks::MemoryRead8>(code, conf.callbacks);
-    prelude_info.wrapped_read_memory_16 = EmitWrappedReadCallTrampoline<&A32::UserCallbacks::MemoryRead16>(code, conf.callbacks);
-    prelude_info.wrapped_read_memory_32 = EmitWrappedReadCallTrampoline<&A32::UserCallbacks::MemoryRead32>(code, conf.callbacks);
-    prelude_info.wrapped_read_memory_64 = EmitWrappedReadCallTrampoline<&A32::UserCallbacks::MemoryRead64>(code, conf.callbacks);
+    prelude_info.read_memory_8 = EmitCallTrampoline<&A32::UserCallbacks::MemoryRead8>(code, conf);
+    prelude_info.read_memory_16 = EmitCallTrampoline<&A32::UserCallbacks::MemoryRead16>(code, conf);
+    prelude_info.read_memory_32 = EmitCallTrampoline<&A32::UserCallbacks::MemoryRead32>(code, conf);
+    prelude_info.read_memory_64 = EmitCallTrampoline<&A32::UserCallbacks::MemoryRead64>(code, conf);
+    prelude_info.wrapped_read_memory_8 = EmitWrappedReadCallTrampoline<&A32::UserCallbacks::MemoryRead8>(code, conf);
+    prelude_info.wrapped_read_memory_16 = EmitWrappedReadCallTrampoline<&A32::UserCallbacks::MemoryRead16>(code, conf);
+    prelude_info.wrapped_read_memory_32 = EmitWrappedReadCallTrampoline<&A32::UserCallbacks::MemoryRead32>(code, conf);
+    prelude_info.wrapped_read_memory_64 = EmitWrappedReadCallTrampoline<&A32::UserCallbacks::MemoryRead64>(code, conf);
     prelude_info.exclusive_read_memory_8 = EmitExclusiveReadCallTrampoline<&A32::UserCallbacks::MemoryRead8, u8>(code, conf);
     prelude_info.exclusive_read_memory_16 = EmitExclusiveReadCallTrampoline<&A32::UserCallbacks::MemoryRead16, u16>(code, conf);
     prelude_info.exclusive_read_memory_32 = EmitExclusiveReadCallTrampoline<&A32::UserCallbacks::MemoryRead32, u32>(code, conf);
     prelude_info.exclusive_read_memory_64 = EmitExclusiveReadCallTrampoline<&A32::UserCallbacks::MemoryRead64, u64>(code, conf);
-    prelude_info.write_memory_8 = EmitCallTrampoline<&A32::UserCallbacks::MemoryWrite8>(code, conf.callbacks);
-    prelude_info.write_memory_16 = EmitCallTrampoline<&A32::UserCallbacks::MemoryWrite16>(code, conf.callbacks);
-    prelude_info.write_memory_32 = EmitCallTrampoline<&A32::UserCallbacks::MemoryWrite32>(code, conf.callbacks);
-    prelude_info.write_memory_64 = EmitCallTrampoline<&A32::UserCallbacks::MemoryWrite64>(code, conf.callbacks);
-    prelude_info.swap_memory_8 = EmitCallTrampoline<&A32::UserCallbacks::MemorySwap8>(code, conf.callbacks);
-    prelude_info.swap_memory_32 = EmitCallTrampoline<&A32::UserCallbacks::MemorySwap32>(code, conf.callbacks);
-    prelude_info.wrapped_write_memory_8 = EmitWrappedWriteCallTrampoline<&A32::UserCallbacks::MemoryWrite8>(code, conf.callbacks);
-    prelude_info.wrapped_write_memory_16 = EmitWrappedWriteCallTrampoline<&A32::UserCallbacks::MemoryWrite16>(code, conf.callbacks);
-    prelude_info.wrapped_write_memory_32 = EmitWrappedWriteCallTrampoline<&A32::UserCallbacks::MemoryWrite32>(code, conf.callbacks);
-    prelude_info.wrapped_write_memory_64 = EmitWrappedWriteCallTrampoline<&A32::UserCallbacks::MemoryWrite64>(code, conf.callbacks);
+    prelude_info.write_memory_8 = EmitCallTrampoline<&A32::UserCallbacks::MemoryWrite8>(code, conf);
+    prelude_info.write_memory_16 = EmitCallTrampoline<&A32::UserCallbacks::MemoryWrite16>(code, conf);
+    prelude_info.write_memory_32 = EmitCallTrampoline<&A32::UserCallbacks::MemoryWrite32>(code, conf);
+    prelude_info.write_memory_64 = EmitCallTrampoline<&A32::UserCallbacks::MemoryWrite64>(code, conf);
+    prelude_info.swap_memory_8 = EmitCallTrampoline<&A32::UserCallbacks::MemorySwap8>(code, conf);
+    prelude_info.swap_memory_32 = EmitCallTrampoline<&A32::UserCallbacks::MemorySwap32>(code, conf);
+    prelude_info.wrapped_write_memory_8 = EmitWrappedWriteCallTrampoline<&A32::UserCallbacks::MemoryWrite8>(code, conf);
+    prelude_info.wrapped_write_memory_16 = EmitWrappedWriteCallTrampoline<&A32::UserCallbacks::MemoryWrite16>(code, conf);
+    prelude_info.wrapped_write_memory_32 = EmitWrappedWriteCallTrampoline<&A32::UserCallbacks::MemoryWrite32>(code, conf);
+    prelude_info.wrapped_write_memory_64 = EmitWrappedWriteCallTrampoline<&A32::UserCallbacks::MemoryWrite64>(code, conf);
     prelude_info.exclusive_write_memory_8 = EmitExclusiveWriteCallTrampoline<&A32::UserCallbacks::MemoryWriteExclusive8, u8>(code, conf);
     prelude_info.exclusive_write_memory_16 = EmitExclusiveWriteCallTrampoline<&A32::UserCallbacks::MemoryWriteExclusive16, u16>(code, conf);
     prelude_info.exclusive_write_memory_32 = EmitExclusiveWriteCallTrampoline<&A32::UserCallbacks::MemoryWriteExclusive32, u32>(code, conf);
     prelude_info.exclusive_write_memory_64 = EmitExclusiveWriteCallTrampoline<&A32::UserCallbacks::MemoryWriteExclusive64, u64>(code, conf);
-    prelude_info.call_svc = EmitCallTrampoline<&A32::UserCallbacks::CallSVC>(code, conf.callbacks);
-    prelude_info.exception_raised = EmitCallTrampoline<&A32::UserCallbacks::ExceptionRaised>(code, conf.callbacks);
-    prelude_info.isb_raised = EmitCallTrampoline<&A32::UserCallbacks::InstructionSynchronizationBarrierRaised>(code, conf.callbacks);
-    prelude_info.add_ticks = EmitCallTrampoline<&A32::UserCallbacks::AddTicks>(code, conf.callbacks);
-    prelude_info.get_ticks_remaining = EmitCallTrampoline<&A32::UserCallbacks::GetTicksRemaining>(code, conf.callbacks);
+    prelude_info.call_svc = EmitCallTrampoline<&A32::UserCallbacks::CallSVC>(code, conf);
+    prelude_info.exception_raised = EmitCallTrampoline<&A32::UserCallbacks::ExceptionRaised>(code, conf);
+    prelude_info.interpreter_fallback = EmitCallTrampoline<&A32::UserCallbacks::InterpreterFallback>(code, conf);
+    prelude_info.isb_raised = EmitCallTrampoline<&A32::UserCallbacks::InstructionSynchronizationBarrierRaised>(code, conf);
+    prelude_info.add_ticks = EmitCallTrampoline<&A32::UserCallbacks::AddTicks>(code, conf);
+    prelude_info.get_ticks_remaining = EmitCallTrampoline<&A32::UserCallbacks::GetTicksRemaining>(code, conf);
 
     oaknut::Label return_from_run_code, l_return_to_dispatcher;
+
+    const auto emit_load_memory_bases = [this] {
+        if (conf.page_table) {
+            if (conf.page_table_link) {
+                EmitLoadLinkedPointer(code, Xpagetable, offsetof(A32JitState, page_table_link));
+            } else {
+                code.MOV(Xpagetable, mcl::bit_cast<u64>(conf.page_table));
+            }
+        }
+        if (conf.fastmem_pointer) {
+            code.MOV(Xfastmem, *conf.fastmem_pointer);
+        } else if (ReadPageTableInRegister()) {
+            if (conf.read_page_table_link) {
+                EmitLoadLinkedPointer(code, Xreadpagetable, offsetof(A32JitState, read_page_table_link));
+            } else {
+                code.MOV(Xreadpagetable, mcl::bit_cast<u64>(conf.read_page_table));
+            }
+        }
+    };
 
     prelude_info.run_code = code.xptr<PreludeInfo::RunCodeFuncType>();
     {
@@ -236,12 +317,7 @@ void A32AddressSpace::EmitPrelude() {
         code.MOV(X19, X0);
         code.MOV(Xstate, X1);
         code.MOV(Xhalt, X2);
-        if (conf.page_table) {
-            code.MOV(Xpagetable, mcl::bit_cast<u64>(conf.page_table));
-        }
-        if (conf.fastmem_pointer) {
-            code.MOV(Xfastmem, *conf.fastmem_pointer);
-        }
+        emit_load_memory_bases();
 
         if (conf.HasOptimization(OptimizationFlag::ReturnStackBuffer)) {
             code.LDR(Xscratch0, l_return_to_dispatcher);
@@ -275,12 +351,7 @@ void A32AddressSpace::EmitPrelude() {
         code.MOV(X19, X0);
         code.MOV(Xstate, X1);
         code.MOV(Xhalt, X2);
-        if (conf.page_table) {
-            code.MOV(Xpagetable, mcl::bit_cast<u64>(conf.page_table));
-        }
-        if (conf.fastmem_pointer) {
-            code.MOV(Xfastmem, *conf.fastmem_pointer);
-        }
+        emit_load_memory_bases();
 
         if (conf.HasOptimization(OptimizationFlag::ReturnStackBuffer)) {
             code.LDR(Xscratch0, l_return_to_dispatcher);
@@ -323,21 +394,38 @@ void A32AddressSpace::EmitPrelude() {
             code.B(LE, return_from_run_code);
         }
 
-        code.LDR(X0, l_this);
-        code.MOV(X1, Xstate);
-        code.LDR(Xscratch0, l_addr);
-        code.BLR(Xscratch0);
-        code.BR(X0);
+        if (lookup_block) {
+            if (conf.lookup_link) {
+                EmitLoadLinkedPointer(code, X0, offsetof(A32JitState, lookup_link));
+            } else {
+                code.LDR(X0, l_this);
+            }
+            code.LDR(Xscratch0, l_addr);
+            code.BLR(Xscratch0);
+            code.BR(X0);
 
-        const auto fn = [](A32AddressSpace& self, A32JitState& context) -> CodePtr {
-            return self.GetOrEmit(context.GetLocationDescriptor());
-        };
+            code.align(8);
+            code.l(l_this);
+            code.dx(mcl::bit_cast<u64>(lookup_block_arg));
+            code.l(l_addr);
+            code.dx(mcl::bit_cast<u64>(lookup_block));
+        } else {
+            code.LDR(X0, l_this);
+            code.MOV(X1, Xstate);
+            code.LDR(Xscratch0, l_addr);
+            code.BLR(Xscratch0);
+            code.BR(X0);
 
-        code.align(8);
-        code.l(l_this);
-        code.dx(mcl::bit_cast<u64>(this));
-        code.l(l_addr);
-        code.dx(mcl::bit_cast<u64>(Common::FptrCast(fn)));
+            const auto fn = [](A32AddressSpace& self, A32JitState& context) -> CodePtr {
+                return self.GetOrEmit(context.GetLocationDescriptor());
+            };
+
+            code.align(8);
+            code.l(l_this);
+            code.dx(mcl::bit_cast<u64>(this));
+            code.l(l_addr);
+            code.dx(mcl::bit_cast<u64>(Common::FptrCast(fn)));
+        }
     }
 
     prelude_info.return_from_run_code = code.xptr<void*>();
@@ -422,6 +510,9 @@ EmitConfig A32AddressSpace::GetEmitConfig() {
         .coprocessors = conf.coprocessors,
 
         .very_verbose_debugging_output = conf.very_verbose_debugging_output,
+
+        .read_page_table_in_register = ReadPageTableInRegister(),
+        .link_coprocessor_user_arg = conf.coprocessor_user_arg_link != nullptr,
     };
 }
 

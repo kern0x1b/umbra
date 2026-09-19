@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: 0BSD
  */
 
+#include <optional>
+
 #include <mcl/bit/bit_field.hpp>
 #include <oaknut/oaknut.hpp>
 
@@ -33,8 +35,16 @@ oaknut::Label EmitA32Cond(oaknut::CodeGenerator& code, EmitContext&, IR::Cond co
 
 void EmitA32Terminal(oaknut::CodeGenerator& code, EmitContext& ctx, IR::Term::Terminal terminal, IR::LocationDescriptor initial_location, bool is_single_step);
 
-void EmitA32Terminal(oaknut::CodeGenerator&, EmitContext&, IR::Term::Interpret, IR::LocationDescriptor, bool) {
-    ASSERT_FALSE("Interpret should never be emitted.");
+void EmitA32Terminal(oaknut::CodeGenerator& code, EmitContext& ctx, IR::Term::Interpret terminal, IR::LocationDescriptor initial_location, bool) {
+    ASSERT_MSG(A32::LocationDescriptor{terminal.next}.TFlag() == A32::LocationDescriptor{initial_location}.TFlag(), "Unimplemented");
+    ASSERT_MSG(A32::LocationDescriptor{terminal.next}.EFlag() == A32::LocationDescriptor{initial_location}.EFlag(), "Unimplemented");
+    ASSERT_MSG(terminal.num_instructions == 1, "Unimplemented");
+
+    code.MOV(W1, A32::LocationDescriptor{terminal.next}.PC());
+    code.MOV(X2, 1);
+    code.STR(W1, Xstate, offsetof(A32JitState, regs) + sizeof(u32) * 15);
+    EmitRelocation(code, ctx, LinkTarget::InterpreterFallback);
+    EmitRelocation(code, ctx, LinkTarget::ReturnToDispatcher);
 }
 
 void EmitA32Terminal(oaknut::CodeGenerator& code, EmitContext& ctx, IR::Term::ReturnToDispatch, IR::LocationDescriptor, bool) {
@@ -58,12 +68,31 @@ static void EmitSetUpperLocationDescriptor(oaknut::CodeGenerator& code, EmitCont
     }
 }
 
+static void EmitHostExecutionBoundary(oaknut::CodeGenerator& code, EmitContext& ctx, std::optional<u32> return_pc) {
+    oaknut::Label disabled;
+
+    code.LDR(Wscratch0, Xstate, offsetof(A32JitState, host_execution_block_budget));
+    code.CBZ(Wscratch0, disabled);
+    code.SUBS(Wscratch0, Wscratch0, 1);
+    code.STR(Wscratch0, Xstate, offsetof(A32JitState, host_execution_block_budget));
+    code.B(NE, disabled);
+    code.MOV(Wscratch0, 1);
+    code.STR(Wscratch0, Xstate, offsetof(A32JitState, host_execution_budget_exhausted));
+    if (return_pc) {
+        code.MOV(Wscratch0, *return_pc);
+        code.STR(Wscratch0, Xstate, offsetof(A32JitState, regs) + sizeof(u32) * 15);
+    }
+    EmitRelocation(code, ctx, LinkTarget::ReturnFromRunCode);
+    code.l(disabled);
+}
+
 void EmitA32Terminal(oaknut::CodeGenerator& code, EmitContext& ctx, IR::Term::LinkBlock terminal, IR::LocationDescriptor initial_location, bool is_single_step) {
     EmitSetUpperLocationDescriptor(code, ctx, terminal.next, initial_location);
 
     oaknut::Label fail;
 
     if (ctx.conf.HasOptimization(OptimizationFlag::BlockLinking) && !is_single_step) {
+        EmitHostExecutionBoundary(code, ctx, A32::LocationDescriptor{terminal.next}.PC());
         if (ctx.conf.enable_cycle_counting) {
             code.CMP(Xticks, 0);
             code.B(LE, fail);
@@ -85,6 +114,7 @@ void EmitA32Terminal(oaknut::CodeGenerator& code, EmitContext& ctx, IR::Term::Li
     EmitSetUpperLocationDescriptor(code, ctx, terminal.next, initial_location);
 
     if (ctx.conf.HasOptimization(OptimizationFlag::BlockLinking) && !is_single_step) {
+        EmitHostExecutionBoundary(code, ctx, A32::LocationDescriptor{terminal.next}.PC());
         EmitBlockLinkRelocation(code, ctx, terminal.next, BlockRelocationType::Branch);
     }
 
@@ -96,6 +126,8 @@ void EmitA32Terminal(oaknut::CodeGenerator& code, EmitContext& ctx, IR::Term::Li
 void EmitA32Terminal(oaknut::CodeGenerator& code, EmitContext& ctx, IR::Term::PopRSBHint, IR::LocationDescriptor, bool is_single_step) {
     if (ctx.conf.HasOptimization(OptimizationFlag::ReturnStackBuffer) && !is_single_step) {
         oaknut::Label fail;
+
+        EmitHostExecutionBoundary(code, ctx, std::nullopt);
 
         code.LDR(Wscratch2, SP, offsetof(StackLayout, rsb_ptr));
         code.AND(Wscratch2, Wscratch2, RSBIndexMask);
@@ -118,10 +150,11 @@ void EmitA32Terminal(oaknut::CodeGenerator& code, EmitContext& ctx, IR::Term::Po
     EmitRelocation(code, ctx, LinkTarget::ReturnToDispatcher);
 }
 
-void EmitA32Terminal(oaknut::CodeGenerator& code, EmitContext& ctx, IR::Term::FastDispatchHint, IR::LocationDescriptor, bool) {
+void EmitA32Terminal(oaknut::CodeGenerator& code, EmitContext& ctx, IR::Term::FastDispatchHint, IR::LocationDescriptor, bool is_single_step) {
+    if (ctx.conf.HasOptimization(OptimizationFlag::FastDispatch) && !is_single_step) {
+        EmitHostExecutionBoundary(code, ctx, std::nullopt);
+    }
     EmitRelocation(code, ctx, LinkTarget::ReturnToDispatcher);
-
-    // TODO: Implement FastDispatchHint optimization
 }
 
 void EmitA32Terminal(oaknut::CodeGenerator& code, EmitContext& ctx, IR::Term::If terminal, IR::LocationDescriptor initial_location, bool is_single_step) {

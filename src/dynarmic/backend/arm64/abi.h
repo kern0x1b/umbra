@@ -22,6 +22,7 @@ constexpr oaknut::XReg Xhalt{27};
 constexpr oaknut::XReg Xticks{26};
 constexpr oaknut::XReg Xfastmem{25};
 constexpr oaknut::XReg Xpagetable{24};
+constexpr oaknut::XReg Xreadpagetable{25};
 
 constexpr oaknut::XReg Xscratch0{16}, Xscratch1{17}, Xscratch2{30};
 constexpr oaknut::WReg Wscratch0{16}, Wscratch1{17}, Wscratch2{30};

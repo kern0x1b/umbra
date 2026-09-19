@@ -84,6 +84,7 @@ void AddressSpace::InvalidateBasicBlocks(const tsl::robin_set<IR::LocationDescri
         RelinkForDescriptor(descriptor, nullptr);
 
         block_entries.erase(iter);
+        pending_block_relinks.erase(descriptor);
     }
 
     ProtectCodeMemory();
@@ -94,13 +95,86 @@ void AddressSpace::ClearCache() {
     reverse_block_entries.clear();
     block_infos.clear();
     block_references.clear();
+    pending_block_relinks.clear();
     code.set_offset(prelude_info.end_of_prelude);
+}
+
+void AddressSpace::PublishPendingBlockRelinks() {
+    if (pending_block_relinks.empty()) {
+        return;
+    }
+
+    UnprotectCodeMemory();
+
+    for (const auto& descriptor : pending_block_relinks) {
+        if (const CodePtr target = Get(descriptor)) {
+            RelinkForDescriptor(descriptor, target);
+        }
+    }
+    pending_block_relinks.clear();
+
+    ProtectCodeMemory();
+}
+
+AddressSpace::RetiredCodeStats AddressSpace::RetireCodeRange(CodePtr begin, CodePtr end, tsl::robin_set<IR::LocationDescriptor>& retired_locations) {
+    RetiredCodeStats stats;
+    if (begin == nullptr || end == nullptr || begin >= end) {
+        return stats;
+    }
+
+    UnprotectCodeMemory();
+
+    auto iter = reverse_block_entries.lower_bound(begin);
+    while (iter != reverse_block_entries.end() && iter->first < end) {
+        const CodePtr entry_point = iter->first;
+        const IR::LocationDescriptor descriptor = iter->second;
+
+        const auto block_info = block_infos.find(entry_point);
+        const auto entry = block_entries.find(descriptor);
+        if (entry != block_entries.end() && entry->second == entry_point) {
+            RelinkForDescriptor(descriptor, nullptr);
+            block_entries.erase(entry);
+            pending_block_relinks.erase(descriptor);
+            retired_locations.insert(descriptor);
+            ++stats.descriptors;
+            if (block_info != block_infos.end()) {
+                stats.code_bytes += block_info->second.size;
+            }
+        }
+
+        if (block_info != block_infos.end()) {
+            for (const auto& [target_descriptor, relocations] : block_info->second.block_relocations) {
+                if (auto references = block_references.find(target_descriptor); references != block_references.end()) {
+                    references.value().erase(entry_point);
+                    if (references->second.empty()) {
+                        block_references.erase(references);
+                    }
+                }
+            }
+            block_infos.erase(block_info);
+        }
+
+        iter = reverse_block_entries.erase(iter);
+    }
+
+    ProtectCodeMemory();
+
+    retired_code_bytes += stats.code_bytes;
+    return stats;
 }
 
 void AddressSpace::DumpDisassembly() const {
     for (u32* ptr = mem.ptr(); ptr < code.xptr<u32*>(); ptr++) {
         std::printf("%s", Common::DisassembleAArch64(*ptr, mcl::bit_cast<u64>(ptr)).c_str());
     }
+}
+
+std::vector<std::string> AddressSpace::Disassemble() const {
+    std::vector<std::string> result;
+    for (u32* ptr = mem.ptr(); ptr < code.xptr<u32*>(); ptr++) {
+        result.push_back(Common::DisassembleAArch64(*ptr, mcl::bit_cast<u64>(ptr)));
+    }
+    return result;
 }
 
 size_t AddressSpace::GetCodeCacheUsed() const {
@@ -116,16 +190,26 @@ EmittedBlockInfo AddressSpace::Emit(IR::Block block) {
         ClearCache();
     }
 
+    return EmitBlock(block);
+}
+
+EmittedBlockInfo AddressSpace::EmitBlock(IR::Block& block) {
+    const IR::LocationDescriptor location = block.Location();
+
     UnprotectCodeMemory();
 
-    EmittedBlockInfo block_info = EmitArm64(code, std::move(block), GetEmitConfig(), fastmem_manager);
+    EmittedBlockInfo block_info = EmitArm64(code, block, GetEmitConfig(), fastmem_manager);
 
-    ASSERT(block_entries.insert({block.Location(), block_info.entry_point}).second);
-    ASSERT(reverse_block_entries.insert({block_info.entry_point, block.Location()}).second);
+    ASSERT(block_entries.insert({location, block_info.entry_point}).second);
+    ASSERT(reverse_block_entries.insert({block_info.entry_point, location}).second);
     ASSERT(block_infos.insert({block_info.entry_point, block_info}).second);
 
     Link(block_info);
-    RelinkForDescriptor(block.Location(), block_info.entry_point);
+    if (defer_block_relinks) {
+        pending_block_relinks.insert(location);
+    } else {
+        RelinkForDescriptor(location, block_info.entry_point);
+    }
 
     mem.invalidate(reinterpret_cast<u32*>(block_info.entry_point), block_info.size);
     ProtectCodeMemory();
@@ -251,6 +335,9 @@ void AddressSpace::Link(EmittedBlockInfo& block_info) {
             break;
         case LinkTarget::ExceptionRaised:
             c.BL(prelude_info.exception_raised);
+            break;
+        case LinkTarget::InterpreterFallback:
+            c.BL(prelude_info.interpreter_fallback);
             break;
         case LinkTarget::InstructionSynchronizationBarrierRaised:
             c.BL(prelude_info.isb_raised);

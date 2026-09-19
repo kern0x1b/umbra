@@ -138,6 +138,22 @@ LinkTarget ExclusiveWriteMemoryLinkTarget(size_t bitsize) {
     UNREACHABLE();
 }
 
+void EmitZeroExtendCallbackResult(oaknut::CodeGenerator& code, oaknut::WReg destination, oaknut::WReg source, size_t bitsize) {
+    switch (bitsize) {
+    case 8:
+        code.AND(destination, source, 0xff);
+        break;
+    case 16:
+        code.AND(destination, source, 0xffff);
+        break;
+    case 32:
+        code.MOV(destination, source);
+        break;
+    default:
+        UNREACHABLE();
+    }
+}
+
 template<size_t bitsize>
 void CallbackOnlyEmitReadMemory(oaknut::CodeGenerator& code, EmitContext& ctx, IR::Inst* inst) {
     auto args = ctx.reg_alloc.GetArgumentInfo(inst);
@@ -153,6 +169,9 @@ void CallbackOnlyEmitReadMemory(oaknut::CodeGenerator& code, EmitContext& ctx, I
         code.MOV(Q8.B16(), Q0.B16());
         ctx.reg_alloc.DefineAsRegister(inst, Q8);
     } else {
+        if constexpr (bitsize < 64) {
+            EmitZeroExtendCallbackResult(code, W0, W0, bitsize);
+        }
         ctx.reg_alloc.DefineAsRegister(inst, X0);
     }
 }
@@ -174,6 +193,9 @@ void CallbackOnlyEmitExclusiveReadMemory(oaknut::CodeGenerator& code, EmitContex
         code.MOV(Q8.B16(), Q0.B16());
         ctx.reg_alloc.DefineAsRegister(inst, Q8);
     } else {
+        if constexpr (bitsize < 64) {
+            EmitZeroExtendCallbackResult(code, W0, W0, bitsize);
+        }
         ctx.reg_alloc.DefineAsRegister(inst, X0);
     }
 }
@@ -198,6 +220,7 @@ void CallbackOnlyEmitSwapMemory(oaknut::CodeGenerator& code, EmitContext& ctx, I
     auto args = ctx.reg_alloc.GetArgumentInfo(inst);
     ctx.reg_alloc.PrepareForCall({}, args[1], args[2]);
     EmitRelocation(code, ctx, SwapMemoryLinkTarget(bitsize));
+    EmitZeroExtendCallbackResult(code, W0, W0, bitsize);
     ctx.reg_alloc.DefineAsRegister(inst, X0);
 }
 
@@ -220,6 +243,7 @@ void CallbackOnlyEmitExclusiveWriteMemory(oaknut::CodeGenerator& code, EmitConte
     if (ordered) {
         code.DMB(oaknut::BarrierOp::ISH);
     }
+    code.MOV(W0, W0);
     code.l(end);
     ctx.reg_alloc.DefineAsRegister(inst, X0);
 }
@@ -269,7 +293,7 @@ void EmitDetectMisalignedVAddr(oaknut::CodeGenerator& code, EmitContext& ctx, oa
 // Address to read/write = [ret0 + ret1], ret0 is always Xscratch0 and ret1 is either Xaddr or Xscratch1
 // Trashes NZCV
 template<size_t bitsize>
-std::pair<oaknut::XReg, oaknut::XReg> InlinePageTableEmitVAddrLookup(oaknut::CodeGenerator& code, EmitContext& ctx, oaknut::XReg Xaddr, const SharedLabel& fallback, u64 page_table_pointer) {
+std::pair<oaknut::XReg, oaknut::XReg> InlinePageTableEmitVAddrLookup(oaknut::CodeGenerator& code, EmitContext& ctx, oaknut::XReg Xaddr, const SharedLabel& fallback, u64 page_table_pointer, bool read_access) {
     const size_t valid_page_index_bits = ctx.conf.page_table_address_space_bits - page_bits;
     const size_t unused_top_bits = 64 - ctx.conf.page_table_address_space_bits;
 
@@ -283,7 +307,9 @@ std::pair<oaknut::XReg, oaknut::XReg> InlinePageTableEmitVAddrLookup(oaknut::Cod
         code.B(NE, *fallback);
     }
 
-    if (page_table_pointer == ctx.conf.page_table_pointer) {
+    if (read_access && ctx.conf.read_page_table_in_register) {
+        code.LDR(Xscratch0, Xreadpagetable, Xscratch0, LSL, 3);
+    } else if (page_table_pointer == ctx.conf.page_table_pointer) {
         code.LDR(Xscratch0, Xpagetable, Xscratch0, LSL, 3);
     } else {
         code.MOV(Xscratch1, page_table_pointer);
@@ -444,7 +470,7 @@ void InlinePageTableEmitReadMemory(oaknut::CodeGenerator& code, EmitContext& ctx
     SharedLabel fallback = GenSharedLabel(), end = GenSharedLabel();
 
     const auto [Xbase, Xoffset] = InlinePageTableEmitVAddrLookup<bitsize>(
-        code, ctx, Xaddr, fallback, ctx.conf.read_page_table_pointer);
+        code, ctx, Xaddr, fallback, ctx.conf.read_page_table_pointer, true);
     EmitMemoryLdr<bitsize>(code, Rvalue->index(), Xbase, Xoffset, ordered);
 
     ctx.deferred_emits.emplace_back([&code, &ctx, inst, Xaddr = *Xaddr, Rvalue = *Rvalue, ordered, fallback, end] {
@@ -456,8 +482,10 @@ void InlinePageTableEmitReadMemory(oaknut::CodeGenerator& code, EmitContext& ctx
         }
         if constexpr (bitsize == 128) {
             code.MOV(Rvalue.B16(), Q0.B16());
-        } else {
+        } else if constexpr (bitsize == 64) {
             code.MOV(Rvalue.toX(), Xscratch0);
+        } else {
+            EmitZeroExtendCallbackResult(code, Rvalue.toW(), Wscratch0, bitsize);
         }
         ctx.conf.emit_check_memory_abort(code, ctx, inst, *end);
         code.B(*end);
@@ -485,7 +513,7 @@ void InlinePageTableEmitWriteMemory(oaknut::CodeGenerator& code, EmitContext& ct
     SharedLabel fallback = GenSharedLabel(), end = GenSharedLabel();
 
     const auto [Xbase, Xoffset] = InlinePageTableEmitVAddrLookup<bitsize>(
-        code, ctx, Xaddr, fallback, ctx.conf.page_table_pointer);
+        code, ctx, Xaddr, fallback, ctx.conf.page_table_pointer, false);
     EmitMemoryStr<bitsize>(code, Rvalue->index(), Xbase, Xoffset, ordered);
 
     ctx.deferred_emits.emplace_back([&code, &ctx, inst, Xaddr = *Xaddr, Rvalue = *Rvalue, ordered, fallback, end] {
@@ -586,8 +614,10 @@ void FastmemEmitReadMemory(oaknut::CodeGenerator& code, EmitContext& ctx, IR::In
         }
         if constexpr (bitsize == 128) {
             code.MOV(Rvalue.B16(), Q0.B16());
-        } else {
+        } else if constexpr (bitsize == 64) {
             code.MOV(Rvalue.toX(), Xscratch0);
+        } else {
+            EmitZeroExtendCallbackResult(code, Rvalue.toW(), Wscratch0, bitsize);
         }
         ctx.conf.emit_check_memory_abort(code, ctx, inst, *end);
         code.B(*end);
