@@ -1,7 +1,4 @@
-/* This file is part of the dynarmic project.
- * Copyright (c) 2018 MerryMage
- * SPDX-License-Identifier: 0BSD
- */
+/* SPDX-License-Identifier: 0BSD */
 
 #pragma once
 
@@ -11,11 +8,11 @@
 #include <mcl/assert.hpp>
 #include <mcl/stdint.hpp>
 
-#include "dynarmic/interface/A64/a64.h"
+#include "umbra/interface/A64/a64.h"
 
-using Vector = Dynarmic::A64::Vector;
+using Vector = Umbra::A64::Vector;
 
-class A64TestEnv : public Dynarmic::A64::UserCallbacks {
+class A64TestEnv : public Umbra::A64::UserCallbacks {
 public:
     u64 ticks_left = 0;
 
@@ -109,7 +106,7 @@ public:
 
     void CallSVC(std::uint32_t swi) override { ASSERT_MSG(false, "CallSVC({})", swi); }
 
-    void ExceptionRaised(u64 pc, Dynarmic::A64::Exception /*exception*/) override { ASSERT_MSG(false, "ExceptionRaised({:016x})", pc); }
+    void ExceptionRaised(u64 pc, Umbra::A64::Exception /*exception*/) override { ASSERT_MSG(false, "ExceptionRaised({:016x})", pc); }
 
     void AddTicks(std::uint64_t ticks) override {
         if (ticks > ticks_left) {
@@ -126,7 +123,7 @@ public:
     }
 };
 
-class A64FastmemTestEnv final : public Dynarmic::A64::UserCallbacks {
+class A64FastmemTestEnv final : public Umbra::A64::UserCallbacks {
 public:
     u64 ticks_left = 0;
     char* backing_memory = nullptr;
@@ -206,7 +203,7 @@ public:
 
     void CallSVC(std::uint32_t swi) override { ASSERT_MSG(false, "CallSVC({})", swi); }
 
-    void ExceptionRaised(u64 pc, Dynarmic::A64::Exception) override { ASSERT_MSG(false, "ExceptionRaised({:016x})", pc); }
+    void ExceptionRaised(u64 pc, Umbra::A64::Exception) override { ASSERT_MSG(false, "ExceptionRaised({:016x})", pc); }
 
     void AddTicks(std::uint64_t ticks) override {
         if (ticks > ticks_left) {

@@ -1,11 +1,8 @@
-/* This file is part of the dynarmic project.
- * Copyright (c) 2018 MerryMage
- * SPDX-License-Identifier: 0BSD
- */
+/* SPDX-License-Identifier: 0BSD */
 
-#include "dynarmic/common/fp/info.h"
+#include "umbra/common/fp/info.h"
 
-using namespace Dynarmic::FP;
+using namespace Umbra::FP;
 
 static_assert(FPValue<u32, false, 0, 1>() == 0x3f800000);
 static_assert(FPValue<u32, false, -1, 3>() == 0x3fc00000);

@@ -1,16 +1,13 @@
-/* This file is part of the dynarmic project.
- * Copyright (c) 2018 MerryMage
- * SPDX-License-Identifier: 0BSD
- */
+/* SPDX-License-Identifier: 0BSD */
 
 #include <catch2/catch_test_macros.hpp>
 #include <oaknut/oaknut.hpp>
 
 #include "./testenv.h"
-#include "dynarmic/common/fp/fpsr.h"
-#include "dynarmic/interface/exclusive_monitor.h"
+#include "umbra/common/fp/fpsr.h"
+#include "umbra/interface/exclusive_monitor.h"
 
-using namespace Dynarmic;
+using namespace Umbra;
 using namespace oaknut::util;
 
 TEST_CASE("A64: ADD", "[a64]") {
@@ -1290,14 +1287,14 @@ TEST_CASE("A64: Memory access (fastmem)", "[a64]") {
     char* backing_memory = reinterpret_cast<char*>(std::align(page_size, memory_size, buffer_ptr, buffer_size_nconst));
 
     A64FastmemTestEnv env{backing_memory};
-    Dynarmic::A64::UserConfig config{&env};
+    Umbra::A64::UserConfig config{&env};
     config.fastmem_pointer = reinterpret_cast<uintptr_t>(backing_memory);
     config.fastmem_address_space_bits = address_width;
     config.recompile_on_fastmem_failure = false;
     config.silently_mirror_fastmem = true;
     config.processor_id = 0;
 
-    Dynarmic::A64::Jit jit{config};
+    Umbra::A64::Jit jit{config};
     memset(backing_memory, 0, memory_size);
     memcpy(backing_memory + 0x100, "Lorem ipsum dolor sit amet, consectetur adipiscing elit.", 57);
 

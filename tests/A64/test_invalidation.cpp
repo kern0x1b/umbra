@@ -1,14 +1,11 @@
-/* This file is part of the dynarmic project.
- * Copyright (c) 2018 MerryMage
- * SPDX-License-Identifier: 0BSD
- */
+/* SPDX-License-Identifier: 0BSD */
 
 #include <catch2/catch_test_macros.hpp>
 
 #include "./testenv.h"
-#include "dynarmic/interface/A64/a64.h"
+#include "umbra/interface/A64/a64.h"
 
-using namespace Dynarmic;
+using namespace Umbra;
 
 TEST_CASE("ensure fast dispatch entry is cleared even when a block does not have any patching requirements", "[a64]") {
     A64TestEnv env;

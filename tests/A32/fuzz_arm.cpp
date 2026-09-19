@@ -1,7 +1,4 @@
-/* This file is part of the dynarmic project.
- * Copyright (c) 2016 MerryMage
- * SPDX-License-Identifier: 0BSD
- */
+/* SPDX-License-Identifier: 0BSD */
 
 #include <algorithm>
 #include <array>
@@ -21,25 +18,25 @@
 #include "../rand_int.h"
 #include "../unicorn_emu/a32_unicorn.h"
 #include "./testenv.h"
-#include "dynarmic/common/fp/fpcr.h"
-#include "dynarmic/common/fp/fpsr.h"
-#include "dynarmic/common/llvm_disassemble.h"
-#include "dynarmic/common/variant_util.h"
-#include "dynarmic/frontend/A32/ITState.h"
-#include "dynarmic/frontend/A32/a32_location_descriptor.h"
-#include "dynarmic/frontend/A32/a32_types.h"
-#include "dynarmic/frontend/A32/translate/a32_translate.h"
-#include "dynarmic/interface/A32/a32.h"
-#include "dynarmic/ir/basic_block.h"
-#include "dynarmic/ir/location_descriptor.h"
-#include "dynarmic/ir/opcodes.h"
+#include "umbra/common/fp/fpcr.h"
+#include "umbra/common/fp/fpsr.h"
+#include "umbra/common/llvm_disassemble.h"
+#include "umbra/common/variant_util.h"
+#include "umbra/frontend/A32/ITState.h"
+#include "umbra/frontend/A32/a32_location_descriptor.h"
+#include "umbra/frontend/A32/a32_types.h"
+#include "umbra/frontend/A32/translate/a32_translate.h"
+#include "umbra/interface/A32/a32.h"
+#include "umbra/ir/basic_block.h"
+#include "umbra/ir/location_descriptor.h"
+#include "umbra/ir/opcodes.h"
 
 // Must be declared last for all necessary operator<< to be declared prior to this.
 #include <fmt/format.h>
 #include <fmt/ostream.h>
 
 namespace {
-using namespace Dynarmic;
+using namespace Umbra;
 
 template<typename Fn>
 bool AnyLocationDescriptorForTerminalHas(IR::Terminal terminal, Fn fn) {
@@ -121,9 +118,9 @@ u32 GenRandomArmInst(u32 pc, bool is_last_inst) {
     } instructions = [] {
         const std::vector<std::tuple<std::string, const char*>> list{
 #define INST(fn, name, bitstring) {#fn, bitstring},
-#include "dynarmic/frontend/A32/decoder/arm.inc"
-#include "dynarmic/frontend/A32/decoder/asimd.inc"
-#include "dynarmic/frontend/A32/decoder/vfp.inc"
+#include "umbra/frontend/A32/decoder/arm.inc"
+#include "umbra/frontend/A32/decoder/asimd.inc"
+#include "umbra/frontend/A32/decoder/vfp.inc"
 #undef INST
         };
 
@@ -192,20 +189,20 @@ std::vector<u16> GenRandomThumbInst(u32 pc, bool is_last_inst, A32::ITState it_s
     } instructions = [] {
         const std::vector<std::tuple<std::string, const char*>> list{
 #define INST(fn, name, bitstring) {#fn, bitstring},
-#include "dynarmic/frontend/A32/decoder/thumb16.inc"
-#include "dynarmic/frontend/A32/decoder/thumb32.inc"
+#include "umbra/frontend/A32/decoder/thumb16.inc"
+#include "umbra/frontend/A32/decoder/thumb32.inc"
 #undef INST
         };
 
         const std::vector<std::tuple<std::string, const char*>> vfp_list{
 #define INST(fn, name, bitstring) {#fn, bitstring},
-#include "dynarmic/frontend/A32/decoder/vfp.inc"
+#include "umbra/frontend/A32/decoder/vfp.inc"
 #undef INST
         };
 
         const std::vector<std::tuple<std::string, const char*>> asimd_list{
 #define INST(fn, name, bitstring) {#fn, bitstring},
-#include "dynarmic/frontend/A32/decoder/asimd.inc"
+#include "umbra/frontend/A32/decoder/asimd.inc"
 #undef INST
         };
 
@@ -303,8 +300,8 @@ std::vector<u16> GenRandomThumbInst(u32 pc, bool is_last_inst, A32::ITState it_s
 }
 
 template<typename TestEnv>
-Dynarmic::A32::UserConfig GetUserConfig(TestEnv& testenv) {
-    Dynarmic::A32::UserConfig user_config;
+Umbra::A32::UserConfig GetUserConfig(TestEnv& testenv) {
+    Umbra::A32::UserConfig user_config;
     user_config.optimizations &= ~OptimizationFlag::FastDispatch;
     user_config.callbacks = &testenv;
     user_config.always_little_endian = true;
@@ -312,7 +309,7 @@ Dynarmic::A32::UserConfig GetUserConfig(TestEnv& testenv) {
 }
 
 template<typename TestEnv>
-static void RunTestInstance(Dynarmic::A32::Jit& jit,
+static void RunTestInstance(Umbra::A32::Jit& jit,
                             A32Unicorn<TestEnv>& uni,
                             TestEnv& jit_env,
                             TestEnv& uni_env,
@@ -380,7 +377,7 @@ static void RunTestInstance(Dynarmic::A32::Jit& jit,
         fmt::print("\n");
 
         fmt::print("Final register listing:\n");
-        fmt::print("     unicorn  dynarmic\n");
+        fmt::print("     unicorn  umbra\n");
         const auto uni_regs = uni.GetRegisters();
         for (size_t i = 0; i < regs.size(); ++i) {
             fmt::print("{:3s}: {:08x} {:08x} {}\n", static_cast<A32::Reg>(i), uni_regs[i], jit.Regs()[i], uni_regs[i] != jit.Regs()[i] ? "*" : "");
@@ -455,7 +452,7 @@ TEST_CASE("A32: Single random arm instruction", "[arm]") {
     ArmTestEnv jit_env{};
     ArmTestEnv uni_env{};
 
-    Dynarmic::A32::Jit jit{GetUserConfig(jit_env)};
+    Umbra::A32::Jit jit{GetUserConfig(jit_env)};
     A32Unicorn<ArmTestEnv> uni{uni_env};
 
     A32Unicorn<ArmTestEnv>::RegisterArray regs;
@@ -483,7 +480,7 @@ TEST_CASE("A32: Small random arm block", "[arm]") {
     ArmTestEnv jit_env{};
     ArmTestEnv uni_env{};
 
-    Dynarmic::A32::Jit jit{GetUserConfig(jit_env)};
+    Umbra::A32::Jit jit{GetUserConfig(jit_env)};
     A32Unicorn<ArmTestEnv> uni{uni_env};
 
     A32Unicorn<ArmTestEnv>::RegisterArray regs;
@@ -519,7 +516,7 @@ TEST_CASE("A32: Large random arm block", "[arm]") {
     ArmTestEnv jit_env{};
     ArmTestEnv uni_env{};
 
-    Dynarmic::A32::Jit jit{GetUserConfig(jit_env)};
+    Umbra::A32::Jit jit{GetUserConfig(jit_env)};
     A32Unicorn<ArmTestEnv> uni{uni_env};
 
     A32Unicorn<ArmTestEnv>::RegisterArray regs;
@@ -549,7 +546,7 @@ TEST_CASE("A32: Single random thumb instruction", "[thumb]") {
     ThumbTestEnv jit_env{};
     ThumbTestEnv uni_env{};
 
-    Dynarmic::A32::Jit jit{GetUserConfig(jit_env)};
+    Umbra::A32::Jit jit{GetUserConfig(jit_env)};
     A32Unicorn<ThumbTestEnv> uni{uni_env};
 
     A32Unicorn<ThumbTestEnv>::RegisterArray regs;
@@ -577,7 +574,7 @@ TEST_CASE("A32: Single random thumb instruction (offset)", "[thumb]") {
     ThumbTestEnv jit_env{};
     ThumbTestEnv uni_env{};
 
-    Dynarmic::A32::Jit jit{GetUserConfig(jit_env)};
+    Umbra::A32::Jit jit{GetUserConfig(jit_env)};
     A32Unicorn<ThumbTestEnv> uni{uni_env};
 
     A32Unicorn<ThumbTestEnv>::RegisterArray regs;
@@ -608,7 +605,7 @@ TEST_CASE("A32: Small random thumb block", "[thumb]") {
     ThumbTestEnv jit_env{};
     ThumbTestEnv uni_env{};
 
-    Dynarmic::A32::Jit jit{GetUserConfig(jit_env)};
+    Umbra::A32::Jit jit{GetUserConfig(jit_env)};
     A32Unicorn<ThumbTestEnv> uni{uni_env};
 
     A32Unicorn<ThumbTestEnv>::RegisterArray regs;
@@ -638,7 +635,7 @@ TEST_CASE("A32: Test thumb IT instruction", "[thumb]") {
     ThumbTestEnv jit_env{};
     ThumbTestEnv uni_env{};
 
-    Dynarmic::A32::Jit jit{GetUserConfig(jit_env)};
+    Umbra::A32::Jit jit{GetUserConfig(jit_env)};
     A32Unicorn<ThumbTestEnv> uni{uni_env};
 
     A32Unicorn<ThumbTestEnv>::RegisterArray regs;

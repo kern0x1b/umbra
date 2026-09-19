@@ -1,7 +1,4 @@
-/* This file is part of the dynarmic project.
- * Copyright (c) 2023 MerryMage
- * SPDX-License-Identifier: 0BSD
- */
+/* SPDX-License-Identifier: 0BSD */
 
 #include <array>
 #include <iostream>
@@ -14,13 +11,13 @@
 
 #include "./A32/testenv.h"
 #include "./A64/testenv.h"
-#include "dynarmic/common/fp/fpsr.h"
-#include "dynarmic/interface/A32/a32.h"
-#include "dynarmic/interface/A64/a64.h"
+#include "umbra/common/fp/fpsr.h"
+#include "umbra/interface/A32/a32.h"
+#include "umbra/interface/A64/a64.h"
 
 const bool mask_fpsr_cum_bits = true;
 
-using namespace Dynarmic;
+using namespace Umbra;
 
 void SkipWhitespace(std::string_view& sv) {
     auto nextpos{sv.find_first_not_of(' ')};
@@ -63,8 +60,8 @@ u64 ParseHex(std::string_view hex) {
 }
 
 template<typename TestEnv>
-Dynarmic::A32::UserConfig GetA32UserConfig(TestEnv& testenv, bool noopt) {
-    Dynarmic::A32::UserConfig user_config;
+Umbra::A32::UserConfig GetA32UserConfig(TestEnv& testenv, bool noopt) {
+    Umbra::A32::UserConfig user_config;
     user_config.optimizations &= ~OptimizationFlag::FastDispatch;
     user_config.callbacks = &testenv;
     user_config.very_verbose_debugging_output = true;
@@ -75,7 +72,7 @@ Dynarmic::A32::UserConfig GetA32UserConfig(TestEnv& testenv, bool noopt) {
 }
 
 template<size_t num_jit_reruns = 1, typename TestEnv>
-void RunTestInstance(Dynarmic::A32::Jit& jit,
+void RunTestInstance(Umbra::A32::Jit& jit,
                      TestEnv& jit_env,
                      const std::array<u32, 16>& regs,
                      const std::array<u32, 64>& vecs,

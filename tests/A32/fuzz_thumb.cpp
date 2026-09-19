@@ -1,7 +1,4 @@
-/* This file is part of the dynarmic project.
- * Copyright (c) 2016 MerryMage
- * SPDX-License-Identifier: 0BSD
- */
+/* SPDX-License-Identifier: 0BSD */
 
 #include <algorithm>
 #include <array>
@@ -19,16 +16,16 @@
 #include "../rand_int.h"
 #include "../unicorn_emu/a32_unicorn.h"
 #include "./testenv.h"
-#include "dynarmic/frontend/A32/FPSCR.h"
-#include "dynarmic/frontend/A32/PSR.h"
-#include "dynarmic/frontend/A32/a32_location_descriptor.h"
-#include "dynarmic/frontend/A32/disassembler/disassembler.h"
-#include "dynarmic/frontend/A32/translate/a32_translate.h"
-#include "dynarmic/interface/A32/a32.h"
-#include "dynarmic/ir/basic_block.h"
-#include "dynarmic/ir/opt/passes.h"
+#include "umbra/frontend/A32/FPSCR.h"
+#include "umbra/frontend/A32/PSR.h"
+#include "umbra/frontend/A32/a32_location_descriptor.h"
+#include "umbra/frontend/A32/disassembler/disassembler.h"
+#include "umbra/frontend/A32/translate/a32_translate.h"
+#include "umbra/interface/A32/a32.h"
+#include "umbra/ir/basic_block.h"
+#include "umbra/ir/opt/passes.h"
 
-using namespace Dynarmic;
+using namespace Umbra;
 
 static A32::UserConfig GetUserConfig(ThumbTestEnv* testenv) {
     A32::UserConfig user_config;

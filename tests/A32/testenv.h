@@ -1,7 +1,4 @@
-/* This file is part of the dynarmic project.
- * Copyright (c) 2018 MerryMage
- * SPDX-License-Identifier: 0BSD
- */
+/* SPDX-License-Identifier: 0BSD */
 
 #pragma once
 
@@ -14,10 +11,10 @@
 #include <mcl/assert.hpp>
 #include <mcl/stdint.hpp>
 
-#include "dynarmic/interface/A32/a32.h"
+#include "umbra/interface/A32/a32.h"
 
 template<typename InstructionType_, u32 infinite_loop_u32>
-class A32TestEnv : public Dynarmic::A32::UserCallbacks {
+class A32TestEnv : public Umbra::A32::UserCallbacks {
 public:
     using InstructionType = InstructionType_;
     using RegisterArray = std::array<u32, 16>;
@@ -111,7 +108,7 @@ public:
 
     void CallSVC(std::uint32_t swi) override { ASSERT_MSG(false, "CallSVC({})", swi); }
 
-    void ExceptionRaised(u32 pc, Dynarmic::A32::Exception /*exception*/) override { ASSERT_MSG(false, "ExceptionRaised({:08x}) code = {:08x}", pc, *MemoryReadCode(pc)); }
+    void ExceptionRaised(u32 pc, Umbra::A32::Exception /*exception*/) override { ASSERT_MSG(false, "ExceptionRaised({:08x}) code = {:08x}", pc, *MemoryReadCode(pc)); }
 
     void AddTicks(std::uint64_t ticks) override {
         if (ticks > ticks_left) {
@@ -128,7 +125,7 @@ public:
 using ArmTestEnv = A32TestEnv<u32, 0xEAFFFFFE>;
 using ThumbTestEnv = A32TestEnv<u16, 0xE7FEE7FE>;
 
-class A32FastmemTestEnv final : public Dynarmic::A32::UserCallbacks {
+class A32FastmemTestEnv final : public Umbra::A32::UserCallbacks {
 public:
     u64 ticks_left = 0;
     char* backing_memory = nullptr;
@@ -210,7 +207,7 @@ public:
 
     void CallSVC(std::uint32_t swi) override { ASSERT_MSG(false, "CallSVC({})", swi); }
 
-    void ExceptionRaised(std::uint32_t pc, Dynarmic::A32::Exception) override { ASSERT_MSG(false, "ExceptionRaised({:016x})", pc); }
+    void ExceptionRaised(std::uint32_t pc, Umbra::A32::Exception) override { ASSERT_MSG(false, "ExceptionRaised({:016x})", pc); }
 
     void AddTicks(std::uint64_t ticks) override {
         if (ticks > ticks_left) {

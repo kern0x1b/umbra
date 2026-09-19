@@ -1,7 +1,4 @@
-/* This file is part of the dynarmic project.
- * Copyright (c) 2023 MerryMage
- * SPDX-License-Identifier: 0BSD
- */
+/* SPDX-License-Identifier: 0BSD */
 
 #include <array>
 #include <exception>
@@ -11,9 +8,9 @@
 #include <mcl/stdint.hpp>
 #include <oaknut/oaknut.hpp>
 
-#include "dynarmic/interface/A64/a64.h"
+#include "umbra/interface/A64/a64.h"
 
-using namespace Dynarmic;
+using namespace Umbra;
 
 namespace {
 

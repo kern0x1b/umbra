@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(dynarmic LANGUAGES C CXX ASM VERSION 6.7.0)
+project(umbra LANGUAGES C CXX ASM VERSION 6.7.0)
 
 # Determine if we're built as a subproject (using add_subdirectory)
 # or if this is the master project.
@@ -12,21 +12,21 @@ if (MASTER_PROJECT)
     include(CTest)
 endif()
 
-# Dynarmic project options
-option(DYNARMIC_ENABLE_CPU_FEATURE_DETECTION "Turning this off causes dynarmic to assume the host CPU doesn't support anything later than SSE3" ON)
-option(DYNARMIC_ENABLE_NO_EXECUTE_SUPPORT "Enables support for systems that require W^X" OFF)
-option(DYNARMIC_FATAL_ERRORS "Errors are fatal" OFF)
-option(DYNARMIC_IGNORE_ASSERTS "Ignore asserts" OFF)
-option(DYNARMIC_TESTS "Build tests" ${BUILD_TESTING})
-option(DYNARMIC_TESTS_USE_UNICORN "Enable fuzzing tests against unicorn" OFF)
-option(DYNARMIC_ENABLE_ILEMU_TEST_EMIT_FAILURE
+# Umbra project options
+option(UMBRA_ENABLE_CPU_FEATURE_DETECTION "Turning this off causes umbra to assume the host CPU doesn't support anything later than SSE3" ON)
+option(UMBRA_ENABLE_NO_EXECUTE_SUPPORT "Enables support for systems that require W^X" OFF)
+option(UMBRA_FATAL_ERRORS "Errors are fatal" OFF)
+option(UMBRA_IGNORE_ASSERTS "Ignore asserts" OFF)
+option(UMBRA_TESTS "Build tests" ${BUILD_TESTING})
+option(UMBRA_TESTS_USE_UNICORN "Enable fuzzing tests against unicorn" OFF)
+option(UMBRA_ENABLE_ILEMU_TEST_EMIT_FAILURE
        "Compile iLEmu portable-emit fault injection hooks" OFF)
-option(DYNARMIC_USE_LLVM "Support disassembly of jitted x86_64 code using LLVM" OFF)
-option(DYNARMIC_USE_PRECOMPILED_HEADERS "Use precompiled headers" ON)
-option(DYNARMIC_USE_BUNDLED_EXTERNALS "Use all bundled externals (useful when e.g. cross-compiling)" OFF)
-option(DYNARMIC_WARNINGS_AS_ERRORS "Warnings as errors" ${MASTER_PROJECT})
-if (NOT DEFINED DYNARMIC_FRONTENDS)
-    set(DYNARMIC_FRONTENDS "A32;A64" CACHE STRING "Selects which frontends to enable")
+option(UMBRA_USE_LLVM "Support disassembly of jitted x86_64 code using LLVM" OFF)
+option(UMBRA_USE_PRECOMPILED_HEADERS "Use precompiled headers" ON)
+option(UMBRA_USE_BUNDLED_EXTERNALS "Use all bundled externals (useful when e.g. cross-compiling)" OFF)
+option(UMBRA_WARNINGS_AS_ERRORS "Warnings as errors" ${MASTER_PROJECT})
+if (NOT DEFINED UMBRA_FRONTENDS)
+    set(UMBRA_FRONTENDS "A32;A64" CACHE STRING "Selects which frontends to enable")
 endif()
 
 # Default to a Release build
@@ -52,7 +52,7 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/CMakeModules")
 
 # Compiler flags
 if (MSVC)
-    set(DYNARMIC_CXX_FLAGS
+    set(UMBRA_CXX_FLAGS
         /experimental:external
         /external:W0
         /external:anglebrackets
@@ -77,32 +77,32 @@ if (MSVC)
         /bigobj             # Increase number of sections in .obj files
         /DNOMINMAX)
 
-    if (DYNARMIC_WARNINGS_AS_ERRORS)
-        list(APPEND DYNARMIC_CXX_FLAGS
+    if (UMBRA_WARNINGS_AS_ERRORS)
+        list(APPEND UMBRA_CXX_FLAGS
              /WX)
     endif()
 
     if (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
-        list(APPEND DYNARMIC_CXX_FLAGS
+        list(APPEND UMBRA_CXX_FLAGS
              -Qunused-arguments
              -Wno-missing-braces)
     endif()
 else()
-    set(DYNARMIC_CXX_FLAGS
+    set(UMBRA_CXX_FLAGS
         -Wall
         -Wextra
         -Wcast-qual
         -pedantic
         -Wno-missing-braces)
 
-    if (DYNARMIC_WARNINGS_AS_ERRORS)
-        list(APPEND DYNARMIC_CXX_FLAGS
+    if (UMBRA_WARNINGS_AS_ERRORS)
+        list(APPEND UMBRA_CXX_FLAGS
              -pedantic-errors
              -Werror)
     endif()
 
-    if (DYNARMIC_FATAL_ERRORS)
-        list(APPEND DYNARMIC_CXX_FLAGS
+    if (UMBRA_FATAL_ERRORS)
+        list(APPEND UMBRA_CXX_FLAGS
              -Wfatal-errors)
     endif()
 
@@ -112,13 +112,13 @@ else()
         # to Address& after first checking isMEM(), and that code is inlined in a situation where
         # GCC knows that the variable is actually a Reg64.  isMEM() will never return true for a
         # Reg64, but GCC doesn't know that.
-        list(APPEND DYNARMIC_CXX_FLAGS -Wno-array-bounds)
+        list(APPEND UMBRA_CXX_FLAGS -Wno-array-bounds)
     endif()
 
     if (CMAKE_CXX_COMPILER_ID MATCHES "[Cc]lang")
         # Bracket depth determines maximum size of a fold expression in Clang since 9c9974c3ccb6.
         # And this in turns limits the size of a std::array.
-        list(APPEND DYNARMIC_CXX_FLAGS -fbracket-depth=1024)
+        list(APPEND UMBRA_CXX_FLAGS -fbracket-depth=1024)
     endif()
 endif()
 
@@ -131,7 +131,7 @@ message(STATUS "Target architecture: ${ARCHITECTURE}")
 
 # Forced use of individual bundled libraries for non-REQUIRED library is possible with e.g. cmake -DCMAKE_DISABLE_FIND_PACKAGE_fmt=ON ...
 
-if (DYNARMIC_USE_BUNDLED_EXTERNALS)
+if (UMBRA_USE_BUNDLED_EXTERNALS)
     set(CMAKE_DISABLE_FIND_PACKAGE_biscuit ON)
     set(CMAKE_DISABLE_FIND_PACKAGE_Catch2 ON)
     set(CMAKE_DISABLE_FIND_PACKAGE_fmt ON)
@@ -147,7 +147,7 @@ find_package(fmt 9 CONFIG)
 find_package(mcl 0.1.12 EXACT CONFIG)
 find_package(tsl-robin-map CONFIG)
 
-if ("arm64" IN_LIST ARCHITECTURE OR DYNARMIC_TESTS)
+if ("arm64" IN_LIST ARCHITECTURE OR UMBRA_TESTS)
     find_package(oaknut 2.0.1 CONFIG)
 endif()
 
@@ -160,14 +160,14 @@ if ("x86_64" IN_LIST ARCHITECTURE)
     find_package(Zydis 4 CONFIG)
 endif()
 
-if (DYNARMIC_USE_LLVM)
+if (UMBRA_USE_LLVM)
     find_package(LLVM REQUIRED)
     separate_arguments(LLVM_DEFINITIONS)
 endif()
 
-if (DYNARMIC_TESTS)
+if (UMBRA_TESTS)
     find_package(Catch2 3 CONFIG)
-    if (DYNARMIC_TESTS_USE_UNICORN)
+    if (UMBRA_TESTS_USE_UNICORN)
         find_package(Unicorn REQUIRED)
     endif()
 endif()
@@ -175,9 +175,9 @@ endif()
 # Pull in externals CMakeLists for libs where available
 add_subdirectory(externals)
 
-# Dynarmic project files
-add_subdirectory(src/dynarmic)
-if (DYNARMIC_TESTS)
+# Umbra project files
+add_subdirectory(src/umbra)
+if (UMBRA_TESTS)
     add_subdirectory(tests)
 endif()
 
@@ -187,23 +187,23 @@ endif()
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
-install(TARGETS dynarmic EXPORT dynarmicTargets)
-install(EXPORT dynarmicTargets
-    NAMESPACE dynarmic::
-    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/dynarmic"
+install(TARGETS umbra EXPORT umbraTargets)
+install(EXPORT umbraTargets
+    NAMESPACE umbra::
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/umbra"
 )
 
-configure_package_config_file(CMakeModules/dynarmicConfig.cmake.in
-    dynarmicConfig.cmake
-    INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/dynarmic"
+configure_package_config_file(CMakeModules/umbraConfig.cmake.in
+    umbraConfig.cmake
+    INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/umbra"
 )
-write_basic_package_version_file(dynarmicConfigVersion.cmake
+write_basic_package_version_file(umbraConfigVersion.cmake
     COMPATIBILITY SameMajorVersion
 )
 install(FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/dynarmicConfig.cmake"
-    "${CMAKE_CURRENT_BINARY_DIR}/dynarmicConfigVersion.cmake"
-    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/dynarmic"
+    "${CMAKE_CURRENT_BINARY_DIR}/umbraConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/umbraConfigVersion.cmake"
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/umbra"
 )
 
-install(DIRECTORY src/dynarmic TYPE INCLUDE FILES_MATCHING PATTERN "*.h")
+install(DIRECTORY src/umbra TYPE INCLUDE FILES_MATCHING PATTERN "*.h")

@@ -1,0 +1,201 @@
+/* SPDX-License-Identifier: 0BSD */
+
+#pragma once
+
+#include <array>
+#include <map>
+#include <memory>
+#include <optional>
+#include <set>
+#include <tuple>
+#include <vector>
+
+#include <tsl/robin_map.h>
+
+#include "umbra/backend/block_range_information.h"
+#include "umbra/backend/x64/a32_jitstate.h"
+#include "umbra/backend/x64/emit_x64.h"
+#include "umbra/backend/x64/memory_fallback_table.h"
+#include "umbra/frontend/A32/a32_location_descriptor.h"
+#include "umbra/interface/A32/a32.h"
+#include "umbra/interface/A32/config.h"
+#include "umbra/ir/terminal.h"
+
+namespace Umbra::Backend::X64 {
+
+class RegAlloc;
+
+struct A32EmitContext final : public EmitContext {
+    A32EmitContext(const A32::UserConfig& conf, RegAlloc& reg_alloc, IR::Block& block, std::deque<Xbyak::Label>& labels);
+
+    A32::LocationDescriptor Location() const;
+    A32::LocationDescriptor EndLocation() const;
+    bool IsSingleStep() const;
+    FP::FPCR FPCR(bool fpcr_controlled = true) const override;
+
+    bool HasOptimization(OptimizationFlag flag) const override {
+        return conf.HasOptimization(flag);
+    }
+
+    const A32::UserConfig& conf;
+};
+
+class A32EmitX64 final : public EmitX64 {
+public:
+    struct CacheStats {
+        std::size_t range_count{};
+        std::size_t descriptor_count{};
+        std::uint64_t invalidated_descriptors{};
+        std::uint64_t retired_code_bytes{};
+    };
+
+    struct RetiredCodeStats {
+        std::size_t descriptors{};
+        std::uint64_t code_bytes{};
+    };
+
+    A32EmitX64(BlockOfCode& code, A32::UserConfig conf, A32::Jit* jit_interface);
+    ~A32EmitX64() override;
+
+    /**
+     * Emit host machine code for a basic block with intermediate representation `block`.
+     * @note block is modified.
+     */
+    BlockDescriptor Emit(IR::Block& block);
+
+    void ClearCache() override;
+
+    tsl::robin_set<IR::LocationDescriptor> InvalidateCacheRanges(
+        const boost::icl::interval_set<u32>& ranges);
+    RetiredCodeStats RetireCodeRange(
+        const void* begin, const void* end);
+    void PatchPublishedTarget(
+        const IR::LocationDescriptor& location, const void* entrypoint);
+
+    [[nodiscard]] CacheStats GetCacheStats() const noexcept;
+
+    // The dispatch table is mutable executor state. Keep its representation
+    // public so a Jit implementation can own it independently of generated
+    // code and emitter metadata.
+    struct FastDispatchEntry {
+        u64 location_descriptor = 0xFFFF'FFFF'FFFF'FFFFull;
+        const void* code_ptr = nullptr;
+    };
+    static_assert(sizeof(FastDispatchEntry) == 0x10);
+    static constexpr u64 fast_dispatch_table_mask = 0xFFFF0;
+    static constexpr size_t fast_dispatch_table_size = 0x10000;
+    static constexpr u32 fast_dispatch_table_address_shift = 2;
+    // Keep the slot selection deterministic and independent of the
+    // executor-local table address. Shared generated blocks can therefore
+    // embed this slot offset and probe it without entering the full handler.
+    // A table entry is 16 bytes while an ARM instruction is four-byte
+    // aligned: shift the mixed descriptor before applying the byte-offset
+    // mask so adjacent ARM basic blocks do not alias the same slot.
+    [[nodiscard]] static constexpr u64 fast_dispatch_table_index(
+        u64 location_descriptor) noexcept {
+        return ((location_descriptor ^ (location_descriptor >> 32U)) << fast_dispatch_table_address_shift) & fast_dispatch_table_mask;
+    }
+
+protected:
+    const A32::UserConfig conf;
+    const std::vector<HostLoc> gpr_order;
+    A32::Jit* jit_interface;
+    BlockRangeInformation<u32> block_ranges;
+    // Segment retirement is ordered by host entrypoint. Looking up one
+    // allocation range is O(log N + retired) instead of rescanning every
+    // descriptor whenever a bounded cache segment rotates.
+    std::map<const u8*, IR::LocationDescriptor, std::less<>>
+        blocks_by_entrypoint;
+    std::uint64_t retired_code_bytes{};
+
+    void EmitCondPrelude(const A32EmitContext& ctx);
+
+    std::unique_ptr<FastDispatchEntry[]> owned_fast_dispatch_table;
+    FastDispatchEntry* fast_dispatch_table = nullptr;
+    void ClearFastDispatchTable();
+    using RetiredRange = std::pair<std::uintptr_t, std::uintptr_t>;
+    void ForgetPatchLocations(std::vector<RetiredRange> ranges);
+
+    void (*memory_read_128)() = nullptr;   // Dummy
+    void (*memory_write_128)() = nullptr;  // Dummy
+
+    MemoryFallbackTable<64> read_fallbacks;
+    MemoryFallbackTable<64> write_fallbacks;
+    MemoryFallbackTable<64> exclusive_write_fallbacks;
+    void GenFastmemFallbacks();
+
+    const void* terminal_handler_pop_rsb_hint;
+    const void* terminal_handler_fast_dispatch_hint = nullptr;
+    const void* terminal_handler_fast_dispatch_after_boundary = nullptr;
+    FastDispatchEntry& (*fast_dispatch_table_lookup)(u64, FastDispatchEntry*) = nullptr;
+    void GenTerminalHandlers();
+
+    // Microinstruction emitters
+#define OPCODE(...)
+#define A32OPC(name, type, ...) void EmitA32##name(A32EmitContext& ctx, IR::Inst* inst);
+#define A64OPC(...)
+#include "umbra/ir/opcodes.inc"
+#undef OPCODE
+#undef A32OPC
+#undef A64OPC
+
+    // Helpers
+    std::string LocationDescriptorToFriendlyName(const IR::LocationDescriptor&) const override;
+
+    // Fastmem information
+    using DoNotFastmemMarker = std::tuple<IR::LocationDescriptor, unsigned>;
+    struct FastmemPatchInfo {
+        u64 resume_rip;
+        u64 callback;
+        DoNotFastmemMarker marker;
+        bool recompile;
+    };
+    tsl::robin_map<u64, FastmemPatchInfo> fastmem_patch_info;
+    std::set<DoNotFastmemMarker> do_not_fastmem;
+    std::optional<DoNotFastmemMarker> ShouldFastmem(A32EmitContext& ctx, IR::Inst* inst) const;
+    FakeCall FastmemCallback(u64 rip);
+
+    // Memory access helpers
+    void EmitCheckMemoryAbort(A32EmitContext& ctx, IR::Inst* inst, Xbyak::Label* end = nullptr);
+    template<std::size_t bitsize, auto callback>
+    void EmitMemoryRead(A32EmitContext& ctx, IR::Inst* inst);
+    template<std::size_t bitsize, auto callback>
+    void EmitMemoryWrite(A32EmitContext& ctx, IR::Inst* inst);
+    template<std::size_t bitsize, auto callback>
+    void EmitMemorySwap(A32EmitContext& ctx, IR::Inst* inst);
+    template<std::size_t bitsize, auto callback>
+    void EmitExclusiveReadMemory(A32EmitContext& ctx, IR::Inst* inst);
+    template<std::size_t bitsize, auto callback>
+    void EmitExclusiveWriteMemory(A32EmitContext& ctx, IR::Inst* inst);
+    template<std::size_t bitsize, auto callback>
+    void EmitExclusiveReadMemoryInline(A32EmitContext& ctx, IR::Inst* inst);
+    template<std::size_t bitsize, auto callback>
+    void EmitExclusiveWriteMemoryInline(A32EmitContext& ctx, IR::Inst* inst);
+
+    // Terminal instruction emitters
+    void EmitSetUpperLocationDescriptor(IR::LocationDescriptor new_location, IR::LocationDescriptor old_location);
+    void EmitTerminalImpl(IR::Term::Interpret terminal, IR::LocationDescriptor initial_location, bool is_single_step) override;
+    void EmitTerminalImpl(IR::Term::ReturnToDispatch terminal, IR::LocationDescriptor initial_location, bool is_single_step) override;
+    void EmitTerminalImpl(IR::Term::LinkBlock terminal, IR::LocationDescriptor initial_location, bool is_single_step) override;
+    void EmitTerminalImpl(IR::Term::LinkBlockFast terminal, IR::LocationDescriptor initial_location, bool is_single_step) override;
+    void EmitTerminalImpl(IR::Term::PopRSBHint terminal, IR::LocationDescriptor initial_location, bool is_single_step) override;
+    void EmitTerminalImpl(IR::Term::FastDispatchHint terminal, IR::LocationDescriptor initial_location, bool is_single_step) override;
+    void EmitTerminalImpl(IR::Term::If terminal, IR::LocationDescriptor initial_location, bool is_single_step) override;
+    void EmitTerminalImpl(IR::Term::CheckBit terminal, IR::LocationDescriptor initial_location, bool is_single_step) override;
+    void EmitTerminalImpl(IR::Term::CheckHalt terminal, IR::LocationDescriptor initial_location, bool is_single_step) override;
+
+    void EmitHostExecutionBoundary(
+        std::optional<std::uint32_t> return_pc = std::nullopt);
+    void EmitStableLink(const IR::LocationDescriptor& target_desc);
+    void PushRSBHelper(Xbyak::Reg64 loc_desc_reg, Xbyak::Reg64 index_reg, IR::LocationDescriptor target) override;
+
+    // Patching
+    bool ShouldPatchExistingBlocks() const override;
+    void Unpatch(const IR::LocationDescriptor& target_desc) override;
+    void EmitPatchJg(const IR::LocationDescriptor& target_desc, CodePtr target_code_ptr = nullptr) override;
+    void EmitPatchJz(const IR::LocationDescriptor& target_desc, CodePtr target_code_ptr = nullptr) override;
+    void EmitPatchJmp(const IR::LocationDescriptor& target_desc, CodePtr target_code_ptr = nullptr) override;
+    void EmitPatchMovRcx(CodePtr target_code_ptr = nullptr) override;
+};
+
+}  // namespace Umbra::Backend::X64

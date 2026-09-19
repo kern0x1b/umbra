@@ -1,13 +1,10 @@
-/* This file is part of the dynarmic project.
- * Copyright (c) 2016 MerryMage
- * SPDX-License-Identifier: 0BSD
- */
+/* SPDX-License-Identifier: 0BSD */
 
 #include <catch2/catch_test_macros.hpp>
 
-#include "dynarmic/frontend/A32/disassembler/disassembler.h"
+#include "umbra/frontend/A32/disassembler/disassembler.h"
 
-using Dynarmic::A32::DisassembleArm;
+using Umbra::A32::DisassembleArm;
 
 TEST_CASE("Disassemble branch instructions", "[arm][disassembler]") {
     REQUIRE(DisassembleArm(0xEAFFFFFE) == "b +#0");

@@ -1,7 +1,4 @@
-/* This file is part of the dynarmic project.
- * Copyright (c) 2018 MerryMage
- * SPDX-License-Identifier: 0BSD
- */
+/* SPDX-License-Identifier: 0BSD */
 
 #include <array>
 
@@ -11,7 +8,7 @@
 #include "../unicorn_emu/a64_unicorn.h"
 #include "./testenv.h"
 
-using namespace Dynarmic;
+using namespace Umbra;
 
 TEST_CASE("Unicorn: Sanity test", "[a64]") {
     A64TestEnv env;

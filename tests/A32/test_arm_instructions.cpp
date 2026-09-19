@@ -1,15 +1,12 @@
-/* This file is part of the dynarmic project.
- * Copyright (c) 2016 MerryMage
- * SPDX-License-Identifier: 0BSD
- */
+/* SPDX-License-Identifier: 0BSD */
 
 #include <catch2/catch_test_macros.hpp>
 
 #include "./testenv.h"
-#include "dynarmic/frontend/A32/a32_location_descriptor.h"
-#include "dynarmic/interface/A32/a32.h"
+#include "umbra/frontend/A32/a32_location_descriptor.h"
+#include "umbra/interface/A32/a32.h"
 
-using namespace Dynarmic;
+using namespace Umbra;
 
 static A32::UserConfig GetUserConfig(ArmTestEnv* testenv) {
     A32::UserConfig user_config;
@@ -252,7 +249,7 @@ TEST_CASE("arm: Step blx", "[arm]") {
     ArmTestEnv test_env;
     A32::UserConfig config = GetUserConfig(&test_env);
     config.optimizations |= OptimizationFlag::FastDispatch;
-    Dynarmic::A32::Jit jit{config};
+    Umbra::A32::Jit jit{config};
     test_env.code_mem = {
         0xe12fff30,  // blx r0
         0xe320f000,  // nop
@@ -280,7 +277,7 @@ TEST_CASE("arm: Step bx", "[arm]") {
     ArmTestEnv test_env;
     A32::UserConfig config = GetUserConfig(&test_env);
     config.optimizations |= OptimizationFlag::FastDispatch;
-    Dynarmic::A32::Jit jit{config};
+    Umbra::A32::Jit jit{config};
     test_env.code_mem = {
         0xe12fff10,  // bx r0
         0xe320f000,  // nop
@@ -305,7 +302,7 @@ TEST_CASE("arm: Step bx", "[arm]") {
 
 TEST_CASE("arm: Test stepping", "[arm]") {
     ArmTestEnv test_env;
-    Dynarmic::A32::Jit jit{GetUserConfig(&test_env)};
+    Umbra::A32::Jit jit{GetUserConfig(&test_env)};
     test_env.code_mem = {
         0xe320f000,  // nop
         0xe320f000,  // nop
@@ -355,7 +352,7 @@ TEST_CASE("arm: Test stepping", "[arm]") {
 
 TEST_CASE("arm: Test stepping 2", "[arm]") {
     ArmTestEnv test_env;
-    Dynarmic::A32::Jit jit{GetUserConfig(&test_env)};
+    Umbra::A32::Jit jit{GetUserConfig(&test_env)};
     test_env.code_mem = {
         0xe12fff10,  // bx r0
         0xe320f000,  // nop
@@ -405,7 +402,7 @@ TEST_CASE("arm: Test stepping 2", "[arm]") {
 
 TEST_CASE("arm: Test stepping 3", "[arm]") {
     ArmTestEnv test_env;
-    Dynarmic::A32::Jit jit{GetUserConfig(&test_env)};
+    Umbra::A32::Jit jit{GetUserConfig(&test_env)};
     test_env.code_mem = {
         0xe12fff10,  // bx r0
         0xe320f000,  // nop
@@ -539,12 +536,12 @@ TEST_CASE("arm: Memory access (fastmem)", "[arm][A32]") {
     char* backing_memory = reinterpret_cast<char*>(std::align(page_size, memory_size, buffer_ptr, buffer_size_nconst));
 
     A32FastmemTestEnv env{backing_memory};
-    Dynarmic::A32::UserConfig config{&env};
+    Umbra::A32::UserConfig config{&env};
     config.fastmem_pointer = reinterpret_cast<uintptr_t>(backing_memory);
     config.recompile_on_fastmem_failure = false;
     config.processor_id = 0;
 
-    Dynarmic::A32::Jit jit{config};
+    Umbra::A32::Jit jit{config};
     memset(backing_memory, 0, memory_size);
     memcpy(backing_memory + 0x100, "Lorem ipsum dolor sit amet, consectetur adipiscing elit.", 57);
 

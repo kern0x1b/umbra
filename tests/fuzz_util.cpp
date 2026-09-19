@@ -1,7 +1,4 @@
-/* This file is part of the dynarmic project.
- * Copyright (c) 2018 MerryMage
- * SPDX-License-Identifier: 0BSD
- */
+/* SPDX-License-Identifier: 0BSD */
 
 #include "./fuzz_util.h"
 
@@ -12,10 +9,10 @@
 #include <mcl/assert.hpp>
 
 #include "./rand_int.h"
-#include "dynarmic/common/fp/fpcr.h"
-#include "dynarmic/common/fp/rounding_mode.h"
+#include "umbra/common/fp/fpcr.h"
+#include "umbra/common/fp/rounding_mode.h"
 
-using namespace Dynarmic;
+using namespace Umbra;
 
 std::ostream& operator<<(std::ostream& o, Vector vec) {
     return o << fmt::format("{:016x}'{:016x}", vec[1], vec[0]);

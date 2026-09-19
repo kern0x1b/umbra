@@ -1,7 +1,4 @@
-/* This file is part of the dynarmic project.
- * Copyright (c) 2022 MerryMage
- * SPDX-License-Identifier: 0BSD
- */
+/* SPDX-License-Identifier: 0BSD */
 
 #include <algorithm>
 #include <array>
@@ -21,20 +18,20 @@
 #include "./A64/testenv.h"
 #include "./fuzz_util.h"
 #include "./rand_int.h"
-#include "dynarmic/common/fp/fpcr.h"
-#include "dynarmic/common/fp/fpsr.h"
-#include "dynarmic/frontend/A32/ITState.h"
-#include "dynarmic/frontend/A32/a32_location_descriptor.h"
-#include "dynarmic/frontend/A32/a32_types.h"
-#include "dynarmic/frontend/A32/translate/a32_translate.h"
-#include "dynarmic/frontend/A64/a64_location_descriptor.h"
-#include "dynarmic/frontend/A64/a64_types.h"
-#include "dynarmic/frontend/A64/translate/a64_translate.h"
-#include "dynarmic/interface/A32/a32.h"
-#include "dynarmic/interface/A64/a64.h"
-#include "dynarmic/ir/basic_block.h"
-#include "dynarmic/ir/location_descriptor.h"
-#include "dynarmic/ir/opcodes.h"
+#include "umbra/common/fp/fpcr.h"
+#include "umbra/common/fp/fpsr.h"
+#include "umbra/frontend/A32/ITState.h"
+#include "umbra/frontend/A32/a32_location_descriptor.h"
+#include "umbra/frontend/A32/a32_types.h"
+#include "umbra/frontend/A32/translate/a32_translate.h"
+#include "umbra/frontend/A64/a64_location_descriptor.h"
+#include "umbra/frontend/A64/a64_types.h"
+#include "umbra/frontend/A64/translate/a64_translate.h"
+#include "umbra/interface/A32/a32.h"
+#include "umbra/interface/A64/a64.h"
+#include "umbra/ir/basic_block.h"
+#include "umbra/ir/location_descriptor.h"
+#include "umbra/ir/opcodes.h"
 
 // Must be declared last for all necessary operator<< to be declared prior to this.
 #include <fmt/format.h>
@@ -43,7 +40,7 @@
 constexpr bool mask_fpsr_cum_bits = true;
 
 namespace {
-using namespace Dynarmic;
+using namespace Umbra;
 
 bool ShouldTestInst(IR::Block& block) {
     if (auto terminal = block.GetTerminal(); boost::get<IR::Term::Interpret>(&terminal)) {
@@ -164,9 +161,9 @@ u32 GenRandomArmInst(u32 pc, bool is_last_inst) {
     } instructions = [] {
         const std::vector<std::tuple<std::string, const char*>> list{
 #define INST(fn, name, bitstring) {#fn, bitstring},
-#include "dynarmic/frontend/A32/decoder/arm.inc"
-#include "dynarmic/frontend/A32/decoder/asimd.inc"
-#include "dynarmic/frontend/A32/decoder/vfp.inc"
+#include "umbra/frontend/A32/decoder/arm.inc"
+#include "umbra/frontend/A32/decoder/asimd.inc"
+#include "umbra/frontend/A32/decoder/vfp.inc"
 #undef INST
         };
 
@@ -230,20 +227,20 @@ std::vector<u16> GenRandomThumbInst(u32 pc, bool is_last_inst, A32::ITState it_s
     } instructions = [] {
         const std::vector<std::tuple<std::string, const char*>> list{
 #define INST(fn, name, bitstring) {#fn, bitstring},
-#include "dynarmic/frontend/A32/decoder/thumb16.inc"
-#include "dynarmic/frontend/A32/decoder/thumb32.inc"
+#include "umbra/frontend/A32/decoder/thumb16.inc"
+#include "umbra/frontend/A32/decoder/thumb32.inc"
 #undef INST
         };
 
         const std::vector<std::tuple<std::string, const char*>> vfp_list{
 #define INST(fn, name, bitstring) {#fn, bitstring},
-#include "dynarmic/frontend/A32/decoder/vfp.inc"
+#include "umbra/frontend/A32/decoder/vfp.inc"
 #undef INST
         };
 
         const std::vector<std::tuple<std::string, const char*>> asimd_list{
 #define INST(fn, name, bitstring) {#fn, bitstring},
-#include "dynarmic/frontend/A32/decoder/asimd.inc"
+#include "umbra/frontend/A32/decoder/asimd.inc"
 #undef INST
         };
 
@@ -333,7 +330,7 @@ u32 GenRandomA64Inst(u64 pc, bool is_last_inst) {
     } instructions = [] {
         const std::vector<std::tuple<std::string, const char*>> list{
 #define INST(fn, name, bitstring) {#fn, bitstring},
-#include "dynarmic/frontend/A64/decoder/a64.inc"
+#include "umbra/frontend/A64/decoder/a64.inc"
 #undef INST
         };
 
@@ -342,7 +339,7 @@ u32 GenRandomA64Inst(u64 pc, bool is_last_inst) {
 
         // List of instructions not to test
         const std::vector<std::string> do_not_test{
-            // Dynarmic and QEMU currently differ on how the exclusive monitor's address range works.
+            // Umbra and QEMU currently differ on how the exclusive monitor's address range works.
             "STXR",
             "STLXR",
             "STXP",
@@ -384,8 +381,8 @@ u32 GenRandomA64Inst(u64 pc, bool is_last_inst) {
 }
 
 template<typename TestEnv>
-Dynarmic::A32::UserConfig GetA32UserConfig(TestEnv& testenv, bool noopt) {
-    Dynarmic::A32::UserConfig user_config;
+Umbra::A32::UserConfig GetA32UserConfig(TestEnv& testenv, bool noopt) {
+    Umbra::A32::UserConfig user_config;
     user_config.optimizations &= ~OptimizationFlag::FastDispatch;
     user_config.callbacks = &testenv;
     if (noopt) {
@@ -395,7 +392,7 @@ Dynarmic::A32::UserConfig GetA32UserConfig(TestEnv& testenv, bool noopt) {
 }
 
 template<size_t num_jit_reruns = 1, typename TestEnv>
-void RunTestInstance(Dynarmic::A32::Jit& jit,
+void RunTestInstance(Umbra::A32::Jit& jit,
                      TestEnv& jit_env,
                      const std::array<u32, 16>& regs,
                      const std::array<u32, 64>& vecs,
@@ -477,8 +474,8 @@ void RunTestInstance(Dynarmic::A32::Jit& jit,
     fmt::print("===\n");
 }
 
-Dynarmic::A64::UserConfig GetA64UserConfig(A64TestEnv& jit_env, bool noopt) {
-    Dynarmic::A64::UserConfig jit_user_config{&jit_env};
+Umbra::A64::UserConfig GetA64UserConfig(A64TestEnv& jit_env, bool noopt) {
+    Umbra::A64::UserConfig jit_user_config{&jit_env};
     jit_user_config.optimizations &= ~OptimizationFlag::FastDispatch;
     // The below corresponds to the settings for qemu's aarch64_max_initfn
     jit_user_config.dczid_el0 = 7;
@@ -490,7 +487,7 @@ Dynarmic::A64::UserConfig GetA64UserConfig(A64TestEnv& jit_env, bool noopt) {
 }
 
 template<size_t num_jit_reruns = 2>
-void RunTestInstance(Dynarmic::A64::Jit& jit,
+void RunTestInstance(Umbra::A64::Jit& jit,
                      A64TestEnv& jit_env,
                      const std::array<u64, 31>& regs,
                      const std::array<std::array<u64, 2>, 32>& vecs,
@@ -576,7 +573,7 @@ void RunTestInstance(Dynarmic::A64::Jit& jit,
 
 void TestThumb(size_t num_instructions, size_t num_iterations, bool noopt) {
     ThumbTestEnv jit_env{};
-    Dynarmic::A32::Jit jit{GetA32UserConfig(jit_env, noopt)};
+    Umbra::A32::Jit jit{GetA32UserConfig(jit_env, noopt)};
 
     std::array<u32, 16> regs;
     std::array<u32, 64> ext_reg;
@@ -603,7 +600,7 @@ void TestThumb(size_t num_instructions, size_t num_iterations, bool noopt) {
 
 void TestArm(size_t num_instructions, size_t num_iterations, bool noopt) {
     ArmTestEnv jit_env{};
-    Dynarmic::A32::Jit jit{GetA32UserConfig(jit_env, noopt)};
+    Umbra::A32::Jit jit{GetA32UserConfig(jit_env, noopt)};
 
     std::array<u32, 16> regs;
     std::array<u32, 64> ext_reg;
@@ -629,7 +626,7 @@ void TestArm(size_t num_instructions, size_t num_iterations, bool noopt) {
 
 void TestA64(size_t num_instructions, size_t num_iterations, bool noopt) {
     A64TestEnv jit_env{};
-    Dynarmic::A64::Jit jit{GetA64UserConfig(jit_env, noopt)};
+    Umbra::A64::Jit jit{GetA64UserConfig(jit_env, noopt)};
 
     std::array<u64, 31> regs;
     std::array<std::array<u64, 2>, 32> vecs;

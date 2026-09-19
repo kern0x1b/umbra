@@ -1,6 +1,6 @@
 # Return Stack Buffer Optimization (x64 Backend)
 
-One of the optimizations that dynarmic does is block-linking. Block-linking is done when
+One of the optimizations that umbra does is block-linking. Block-linking is done when
 the destination address of a jump is available at JIT-time. Instead of returning to the
 dispatcher at the end of a block we can perform block-linking: just jump directly to the
 next block. This is beneficial because returning to the dispatcher can often be quite
@@ -19,7 +19,7 @@ This is the essential idea behind this optimization.
 
 ## `UniqueHash`
 
-One complication dynarmic has is that a compiled block is not uniquely identifiable by
+One complication umbra has is that a compiled block is not uniquely identifiable by
 the PC alone, but bits in the FPSCR and CPSR are also relevant. We resolve this by
 computing a 64-bit `UniqueHash` that is guaranteed to uniquely identify a block.
 
@@ -35,7 +35,7 @@ computing a 64-bit `UniqueHash` that is guaranteed to uniquely identify a block.
 
 ## Our implementation isn't actually a stack
 
-Dynarmic's RSB isn't actually a stack. It was implemented as a ring buffer because
+Umbra's RSB isn't actually a stack. It was implemented as a ring buffer because
 that showed better performance in tests.
 
 ### RSB Structure

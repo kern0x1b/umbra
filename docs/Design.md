@@ -1,20 +1,20 @@
-# Dynarmic Design Documentation
+# Umbra Design Documentation
 
-Dynarmic is a dynamic recompiler for the ARMv6K architecture. Future plans for dynarmic include
+Umbra is a dynamic recompiler for the ARMv6K architecture. Future plans for umbra include
 support for other versions of the ARM architecture, having a interpreter mode, and adding support
 for other architectures.
 
 Users of this library interact with it primarily through the interface provided in
-[`src/dynarmic/interface`](../src/dynarmic/interface). Users specify how dynarmic's CPU core interacts with
+[`src/umbra/interface`](../src/umbra/interface). Users specify how umbra's CPU core interacts with
 the rest of their system providing an implementation of the relevant `UserCallbacks` interface.
 Users setup the CPU state using member functions of `Jit`, then call `Jit::Execute` to start CPU
 execution. The callbacks defined on `UserCallbacks` may be called from dynamically generated code,
 so users of the library should not depend on the stack being in a walkable state for unwinding.
 
-* A32: [`Jit`](../src/dynarmic/interface/A32/a32.h), [`UserCallbacks`](../src/dynarmic/interface/A32/config.h)
-* A64: [`Jit`](../src/dynarmic/interface/A64/a64.h), [`UserCallbacks`](../src/dynarmic/interface/A64/config.h)
+* A32: [`Jit`](../src/umbra/interface/A32/a32.h), [`UserCallbacks`](../src/umbra/interface/A32/config.h)
+* A64: [`Jit`](../src/umbra/interface/A64/a64.h), [`UserCallbacks`](../src/umbra/interface/A64/config.h)
 
-Dynarmic reads instructions from memory by calling `UserCallbacks::MemoryReadCode`. These
+Umbra reads instructions from memory by calling `UserCallbacks::MemoryReadCode`. These
 instructions then pass through several stages:
 
 1. Decoding (Identifying what type of instruction it is and breaking it up into fields)
@@ -26,19 +26,19 @@ instructions then pass through several stages:
 Using the A32 frontend with the x64 backend as an example:
 
 * Decoding is done by [double dispatch](https://en.wikipedia.org/wiki/Visitor_pattern) in
-  [`src/frontend/A32/decoder/{arm.h,thumb16.h,thumb32.h}`](../src/dynarmic/frontend/A32/decoder/).
-* Translation is done by the visitors in [`src/dynarmic/frontend/A32/translate/translate_{arm,thumb}.cpp`](../src/dynarmic/frontend/A32/translate/).
-  The function [`Translate`](../src/dynarmic/frontend/A32/translate/translate.h) takes a starting memory location,
+  [`src/frontend/A32/decoder/{arm.h,thumb16.h,thumb32.h}`](../src/umbra/frontend/A32/decoder/).
+* Translation is done by the visitors in [`src/umbra/frontend/A32/translate/translate_{arm,thumb}.cpp`](../src/umbra/frontend/A32/translate/).
+  The function [`Translate`](../src/umbra/frontend/A32/translate/translate.h) takes a starting memory location,
   some CPU state, and memory reader callback and returns a basic block of IR.
-* The IR can be found under [`src/frontend/ir/`](../src/dynarmic/ir/).
-* Optimizations can be found under [`src/ir_opt/`](../src/dynarmic/ir/opt/).
-* Emission is done by `EmitX64` which can be found in [`src/dynarmic/backend/x64/emit_x64.{h,cpp}`](../src/dynarmic/backend/x64/).
-* Execution is performed by calling `BlockOfCode::RunCode` in [`src/dynarmic/backend/x64/block_of_code.{h,cpp}`](../src/dynarmic/backend/x64/).
+* The IR can be found under [`src/frontend/ir/`](../src/umbra/ir/).
+* Optimizations can be found under [`src/ir_opt/`](../src/umbra/ir/opt/).
+* Emission is done by `EmitX64` which can be found in [`src/umbra/backend/x64/emit_x64.{h,cpp}`](../src/umbra/backend/x64/).
+* Execution is performed by calling `BlockOfCode::RunCode` in [`src/umbra/backend/x64/block_of_code.{h,cpp}`](../src/umbra/backend/x64/).
 
 ## Decoder
 
 The decoder is a double dispatch decoder. Each instruction is represented by a line in the relevant
-instruction table. Here is an example line from [`arm.h`](../src/dynarmic/frontend/A32/decoder/arm.h):
+instruction table. Here is an example line from [`arm.h`](../src/umbra/frontend/A32/decoder/arm.h):
 
     INST(&V::arm_ADC_imm,     "ADC (imm)",           "cccc0010101Snnnnddddrrrrvvvvvvvv")
 
@@ -61,7 +61,7 @@ error results.
 ## Translator
 
 The translator is a visitor that uses the decoder to decode instructions. The translator generates IR code with the
-help of the [`IREmitter` class](../src/dynarmic/ir/ir_emitter.h). An example of a translation function follows:
+help of the [`IREmitter` class](../src/umbra/ir/ir_emitter.h). An example of a translation function follows:
 
     bool ArmTranslatorVisitor::arm_ADC_imm(Cond cond, bool S, Reg n, Reg d, int rotate, Imm8 imm8) {
         u32 imm32 = ArmExpandImm(rotate, imm8);
@@ -95,19 +95,19 @@ an IR microinstruction.
 
 ## Intermediate Representation
 
-Dynarmic uses an ordered SSA intermediate representation. It is very vaguely similar to those found in other
+Umbra uses an ordered SSA intermediate representation. It is very vaguely similar to those found in other
 similar projects like redream, nucleus, and xenia. Major differences are: (1) the abundance of context
 microinstructions  whereas those projects generally only have two (`load_context`/`store_context`), (2) the
 explicit handling of flags as their own values, and (3) very different basic block edge handling.
 
 The intention of the context microinstructions and explicit flag handling is to allow for future optimizations. The
-differences in the way edges are handled are a quirk of the current implementation and dynarmic will likely add a
+differences in the way edges are handled are a quirk of the current implementation and umbra will likely add a
 function analyser in the medium-term future.
 
-Dynarmic's intermediate representation is typed. Each microinstruction may take zero or more arguments and may
+Umbra's intermediate representation is typed. Each microinstruction may take zero or more arguments and may
 return zero or more arguments. A subset of the microinstructions available is documented below.
 
-A complete list of microinstructions can be found in [src/dynarmic/ir/opcodes.inc](../src/dynarmic/ir/opcodes.inc).
+A complete list of microinstructions can be found in [src/umbra/ir/opcodes.inc](../src/umbra/ir/opcodes.inc).
 
 The below lists some commonly used microinstructions.
 

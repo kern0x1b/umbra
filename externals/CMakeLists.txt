@@ -1,4 +1,4 @@
-# Always build externals as static libraries, even when dynarmic is built as shared
+# Always build externals as static libraries, even when umbra is built as shared
 if (BUILD_SHARED_LIBS)
     set(BUILD_SHARED_LIBS OFF)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -26,7 +26,7 @@ endif()
 # catch
 
 if (NOT TARGET Catch2::Catch2WithMain)
-    if (DYNARMIC_TESTS)
+    if (UMBRA_TESTS)
         add_subdirectory(catch EXCLUDE_FROM_ALL)
     endif()
 endif()
@@ -51,7 +51,7 @@ endif()
 if (NOT TARGET merry::oaknut)
     if ("arm64" IN_LIST ARCHITECTURE)
         add_subdirectory(oaknut)
-    elseif (DYNARMIC_TESTS)
+    elseif (UMBRA_TESTS)
         add_subdirectory(oaknut EXCLUDE_FROM_ALL)
     endif()
 endif()

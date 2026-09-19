@@ -1,7 +1,4 @@
-/* This file is part of the dynarmic project.
- * Copyright (c) 2018 MerryMage
- * SPDX-License-Identifier: 0BSD
- */
+/* SPDX-License-Identifier: 0BSD */
 
 #include <algorithm>
 #include <cstring>
@@ -16,22 +13,22 @@
 #include "../rand_int.h"
 #include "../unicorn_emu/a64_unicorn.h"
 #include "./testenv.h"
-#include "dynarmic/common/fp/fpcr.h"
-#include "dynarmic/common/fp/fpsr.h"
-#include "dynarmic/common/llvm_disassemble.h"
-#include "dynarmic/frontend/A64/a64_location_descriptor.h"
-#include "dynarmic/frontend/A64/a64_types.h"
-#include "dynarmic/frontend/A64/decoder/a64.h"
-#include "dynarmic/frontend/A64/translate/a64_translate.h"
-#include "dynarmic/ir/basic_block.h"
-#include "dynarmic/ir/opcodes.h"
-#include "dynarmic/ir/opt/passes.h"
+#include "umbra/common/fp/fpcr.h"
+#include "umbra/common/fp/fpsr.h"
+#include "umbra/common/llvm_disassemble.h"
+#include "umbra/frontend/A64/a64_location_descriptor.h"
+#include "umbra/frontend/A64/a64_types.h"
+#include "umbra/frontend/A64/decoder/a64.h"
+#include "umbra/frontend/A64/translate/a64_translate.h"
+#include "umbra/ir/basic_block.h"
+#include "umbra/ir/opcodes.h"
+#include "umbra/ir/opt/passes.h"
 
 // Must be declared last for all necessary operator<< to be declared prior to this.
 #include <fmt/format.h>
 #include <fmt/ostream.h>
 
-using namespace Dynarmic;
+using namespace Umbra;
 
 static bool ShouldTestInst(u32 instruction, u64 pc, bool is_last_inst) {
     const A64::LocationDescriptor location{pc, {}};
@@ -62,7 +59,7 @@ static u32 GenRandomInst(u64 pc, bool is_last_inst) {
     } instructions = [] {
         const std::vector<std::tuple<std::string, const char*>> list{
 #define INST(fn, name, bitstring) {#fn, bitstring},
-#include "dynarmic/frontend/A64/decoder/a64.inc"
+#include "umbra/frontend/A64/decoder/a64.inc"
 #undef INST
         };
 
@@ -75,7 +72,7 @@ static u32 GenRandomInst(u64 pc, bool is_last_inst) {
             "STLLR",
             // Unimplemented in QEMU
             "LDLAR",
-            // Dynarmic and QEMU currently differ on how the exclusive monitor's address range works.
+            // Umbra and QEMU currently differ on how the exclusive monitor's address range works.
             "STXR",
             "STLXR",
             "STXP",
@@ -120,7 +117,7 @@ static u32 GenFloatInst(u64 pc, bool is_last_inst) {
     static const std::vector<InstructionGenerator> instruction_generators = [] {
         const std::vector<std::tuple<std::string, std::string, const char*>> list{
 #define INST(fn, name, bitstring) {#fn, #name, bitstring},
-#include "dynarmic/frontend/A64/decoder/a64.inc"
+#include "umbra/frontend/A64/decoder/a64.inc"
 #undef INST
         };
 
@@ -153,8 +150,8 @@ static u32 GenFloatInst(u64 pc, bool is_last_inst) {
     }
 }
 
-static Dynarmic::A64::UserConfig GetUserConfig(A64TestEnv& jit_env) {
-    Dynarmic::A64::UserConfig jit_user_config{&jit_env};
+static Umbra::A64::UserConfig GetUserConfig(A64TestEnv& jit_env) {
+    Umbra::A64::UserConfig jit_user_config{&jit_env};
     jit_user_config.optimizations &= ~OptimizationFlag::FastDispatch;
     // The below corresponds to the settings for qemu's aarch64_max_initfn
     jit_user_config.dczid_el0 = 7;
@@ -162,7 +159,7 @@ static Dynarmic::A64::UserConfig GetUserConfig(A64TestEnv& jit_env) {
     return jit_user_config;
 }
 
-static void RunTestInstance(Dynarmic::A64::Jit& jit, A64Unicorn& uni, A64TestEnv& jit_env, A64TestEnv& uni_env, const A64Unicorn::RegisterArray& regs, const A64Unicorn::VectorArray& vecs, const size_t instructions_start, const std::vector<u32>& instructions, const u32 pstate, const u32 fpcr) {
+static void RunTestInstance(Umbra::A64::Jit& jit, A64Unicorn& uni, A64TestEnv& jit_env, A64TestEnv& uni_env, const A64Unicorn::RegisterArray& regs, const A64Unicorn::VectorArray& vecs, const size_t instructions_start, const std::vector<u32>& instructions, const u32 pstate, const u32 fpcr) {
     jit_env.code_mem = instructions;
     uni_env.code_mem = instructions;
     jit_env.code_mem.emplace_back(0x14000000);  // B .
@@ -225,7 +222,7 @@ static void RunTestInstance(Dynarmic::A64::Jit& jit, A64Unicorn& uni, A64TestEnv
         fmt::print("\n");
 
         fmt::print("Final register listing:\n");
-        fmt::print("     unicorn          dynarmic\n");
+        fmt::print("     unicorn          umbra\n");
         const auto uni_regs = uni.GetRegisters();
         for (size_t i = 0; i < regs.size(); ++i) {
             fmt::print("{:3s}: {:016x} {:016x} {}\n", A64::RegToString(static_cast<A64::Reg>(i)), uni_regs[i], jit.GetRegisters()[i], uni_regs[i] != jit.GetRegisters()[i] ? "*" : "");
@@ -306,7 +303,7 @@ TEST_CASE("A64: Single random instruction", "[a64]") {
     A64TestEnv jit_env{};
     A64TestEnv uni_env{};
 
-    Dynarmic::A64::Jit jit{GetUserConfig(jit_env)};
+    Umbra::A64::Jit jit{GetUserConfig(jit_env)};
     A64Unicorn uni{uni_env};
 
     A64Unicorn::RegisterArray regs;
@@ -333,7 +330,7 @@ TEST_CASE("A64: Floating point instructions", "[a64]") {
     A64TestEnv jit_env{};
     A64TestEnv uni_env{};
 
-    Dynarmic::A64::Jit jit{GetUserConfig(jit_env)};
+    Umbra::A64::Jit jit{GetUserConfig(jit_env)};
     A64Unicorn uni{uni_env};
 
     static constexpr std::array<u64, 80> float_numbers{
@@ -458,7 +455,7 @@ TEST_CASE("A64: Small random block", "[a64]") {
     A64TestEnv jit_env{};
     A64TestEnv uni_env{};
 
-    Dynarmic::A64::Jit jit{GetUserConfig(jit_env)};
+    Umbra::A64::Jit jit{GetUserConfig(jit_env)};
     A64Unicorn uni{uni_env};
 
     A64Unicorn::RegisterArray regs;
@@ -493,7 +490,7 @@ TEST_CASE("A64: Large random block", "[a64]") {
     A64TestEnv jit_env{};
     A64TestEnv uni_env{};
 
-    Dynarmic::A64::Jit jit{GetUserConfig(jit_env)};
+    Umbra::A64::Jit jit{GetUserConfig(jit_env)};
     A64Unicorn uni{uni_env};
 
     A64Unicorn::RegisterArray regs;

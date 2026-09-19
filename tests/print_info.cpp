@@ -1,7 +1,4 @@
-/* This file is part of the dynarmic project.
- * Copyright (c) 2018 MerryMage
- * SPDX-License-Identifier: 0BSD
- */
+/* SPDX-License-Identifier: 0BSD */
 
 #include <algorithm>
 #include <cctype>
@@ -17,23 +14,23 @@
 #include <mcl/bit/swap.hpp>
 #include <mcl/stdint.hpp>
 
-#include "dynarmic/common/llvm_disassemble.h"
-#include "dynarmic/frontend/A32/a32_location_descriptor.h"
-#include "dynarmic/frontend/A32/decoder/arm.h"
-#include "dynarmic/frontend/A32/decoder/asimd.h"
-#include "dynarmic/frontend/A32/decoder/vfp.h"
-#include "dynarmic/frontend/A32/translate/a32_translate.h"
-#include "dynarmic/frontend/A32/translate/impl/a32_translate_impl.h"
-#include "dynarmic/frontend/A64/a64_location_descriptor.h"
-#include "dynarmic/frontend/A64/decoder/a64.h"
-#include "dynarmic/frontend/A64/translate/a64_translate.h"
-#include "dynarmic/frontend/A64/translate/impl/impl.h"
-#include "dynarmic/interface/A32/a32.h"
-#include "dynarmic/interface/A32/disassembler.h"
-#include "dynarmic/ir/basic_block.h"
-#include "dynarmic/ir/opt/passes.h"
+#include "umbra/common/llvm_disassemble.h"
+#include "umbra/frontend/A32/a32_location_descriptor.h"
+#include "umbra/frontend/A32/decoder/arm.h"
+#include "umbra/frontend/A32/decoder/asimd.h"
+#include "umbra/frontend/A32/decoder/vfp.h"
+#include "umbra/frontend/A32/translate/a32_translate.h"
+#include "umbra/frontend/A32/translate/impl/a32_translate_impl.h"
+#include "umbra/frontend/A64/a64_location_descriptor.h"
+#include "umbra/frontend/A64/decoder/a64.h"
+#include "umbra/frontend/A64/translate/a64_translate.h"
+#include "umbra/frontend/A64/translate/impl/impl.h"
+#include "umbra/interface/A32/a32.h"
+#include "umbra/interface/A32/disassembler.h"
+#include "umbra/ir/basic_block.h"
+#include "umbra/ir/opt/passes.h"
 
-using namespace Dynarmic;
+using namespace Umbra;
 
 const char* GetNameOfA32Instruction(u32 instruction) {
     if (auto vfp_decoder = A32::DecodeVFP<A32::TranslatorVisitor>(instruction)) {
@@ -128,7 +125,7 @@ void PrintThumbInstruction(u32 instruction) {
     fmt::print("{}\n", IR::DumpBlock(ir_block));
 }
 
-class ExecEnv final : public Dynarmic::A32::UserCallbacks {
+class ExecEnv final : public Umbra::A32::UserCallbacks {
 public:
     u64 ticks_left = 0;
     std::map<u32, u8> memory;
@@ -171,7 +168,7 @@ public:
     void CallSVC(std::uint32_t swi) override {
         fmt::print("> CallSVC({})\n", swi);
     }
-    void ExceptionRaised(u32 pc, Dynarmic::A32::Exception exception) override {
+    void ExceptionRaised(u32 pc, Umbra::A32::Exception exception) override {
         fmt::print("> ExceptionRaised({:08x}, {})", pc, static_cast<size_t>(exception));
     }
 

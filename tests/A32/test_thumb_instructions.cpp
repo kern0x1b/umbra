@@ -1,23 +1,20 @@
-/* This file is part of the dynarmic project.
- * Copyright (c) 2016 MerryMage
- * SPDX-License-Identifier: 0BSD
- */
+/* SPDX-License-Identifier: 0BSD */
 
 #include <catch2/catch_test_macros.hpp>
 #include <mcl/stdint.hpp>
 
 #include "./testenv.h"
-#include "dynarmic/interface/A32/a32.h"
+#include "umbra/interface/A32/a32.h"
 
-static Dynarmic::A32::UserConfig GetUserConfig(ThumbTestEnv* testenv) {
-    Dynarmic::A32::UserConfig user_config;
+static Umbra::A32::UserConfig GetUserConfig(ThumbTestEnv* testenv) {
+    Umbra::A32::UserConfig user_config;
     user_config.callbacks = testenv;
     return user_config;
 }
 
 TEST_CASE("thumb: lsls r0, r1, #2", "[thumb]") {
     ThumbTestEnv test_env;
-    Dynarmic::A32::Jit jit{GetUserConfig(&test_env)};
+    Umbra::A32::Jit jit{GetUserConfig(&test_env)};
     test_env.code_mem = {
         0x0088,  // lsls r0, r1, #2
         0xE7FE,  // b +#0
@@ -39,7 +36,7 @@ TEST_CASE("thumb: lsls r0, r1, #2", "[thumb]") {
 
 TEST_CASE("thumb: lsls r0, r1, #31", "[thumb]") {
     ThumbTestEnv test_env;
-    Dynarmic::A32::Jit jit{GetUserConfig(&test_env)};
+    Umbra::A32::Jit jit{GetUserConfig(&test_env)};
     test_env.code_mem = {
         0x07C8,  // lsls r0, r1, #31
         0xE7FE,  // b +#0
@@ -61,7 +58,7 @@ TEST_CASE("thumb: lsls r0, r1, #31", "[thumb]") {
 
 TEST_CASE("thumb: revsh r4, r3", "[thumb]") {
     ThumbTestEnv test_env;
-    Dynarmic::A32::Jit jit{GetUserConfig(&test_env)};
+    Umbra::A32::Jit jit{GetUserConfig(&test_env)};
     test_env.code_mem = {
         0xBADC,  // revsh r4, r3
         0xE7FE,  // b +#0
@@ -82,7 +79,7 @@ TEST_CASE("thumb: revsh r4, r3", "[thumb]") {
 
 TEST_CASE("thumb: ldr r3, [r3, #28]", "[thumb]") {
     ThumbTestEnv test_env;
-    Dynarmic::A32::Jit jit{GetUserConfig(&test_env)};
+    Umbra::A32::Jit jit{GetUserConfig(&test_env)};
     test_env.code_mem = {
         0x69DB,  // ldr r3, [r3, #28]
         0xE7FE,  // b +#0
@@ -102,7 +99,7 @@ TEST_CASE("thumb: ldr r3, [r3, #28]", "[thumb]") {
 
 TEST_CASE("thumb: blx +#67712", "[thumb]") {
     ThumbTestEnv test_env;
-    Dynarmic::A32::Jit jit{GetUserConfig(&test_env)};
+    Umbra::A32::Jit jit{GetUserConfig(&test_env)};
     test_env.code_mem = {
         0xF010, 0xEC3E,  // blx +#67712
         0xE7FE           // b +#0
@@ -121,7 +118,7 @@ TEST_CASE("thumb: blx +#67712", "[thumb]") {
 
 TEST_CASE("thumb: bl +#234584", "[thumb]") {
     ThumbTestEnv test_env;
-    Dynarmic::A32::Jit jit{GetUserConfig(&test_env)};
+    Umbra::A32::Jit jit{GetUserConfig(&test_env)};
     test_env.code_mem = {
         0xF039, 0xFA2A,  // bl +#234584
         0xE7FE           // b +#0
@@ -140,7 +137,7 @@ TEST_CASE("thumb: bl +#234584", "[thumb]") {
 
 TEST_CASE("thumb: bl -#42", "[thumb]") {
     ThumbTestEnv test_env;
-    Dynarmic::A32::Jit jit{GetUserConfig(&test_env)};
+    Umbra::A32::Jit jit{GetUserConfig(&test_env)};
     test_env.code_mem = {
         0xF7FF, 0xFFE9,  // bl -#42
         0xE7FE           // b +#0
@@ -190,7 +187,7 @@ TEST_CASE("thumb: Opt Failure: Get/Set Elimination for Flags", "[thumb]") {
     // terminal = LinkBlock{{000000010000000a}}
 
     ThumbTestEnv test_env;
-    Dynarmic::A32::Jit jit{GetUserConfig(&test_env)};
+    Umbra::A32::Jit jit{GetUserConfig(&test_env)};
     test_env.code_mem = {
         0x434e,  // muls r6, r1, r6
         0x4557,  // cmp r7, r10
@@ -230,7 +227,7 @@ TEST_CASE("thumb: Opt Failure: Get/Set Elimination for Flags 2", "[thumb]") {
     // This was a randomized test-case that was failing.
 
     ThumbTestEnv test_env;
-    Dynarmic::A32::Jit jit{GetUserConfig(&test_env)};
+    Umbra::A32::Jit jit{GetUserConfig(&test_env)};
     test_env.code_mem = {
         0x442a,  // add r2, r5
         0x065d,  // lsls r5, r3, #25

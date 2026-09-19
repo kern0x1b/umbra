@@ -1,7 +1,4 @@
-/* This file is part of the dynarmic project.
- * Copyright (c) 2018 MerryMage
- * SPDX-License-Identifier: 0BSD
- */
+/* SPDX-License-Identifier: 0BSD */
 
 #include <tuple>
 #include <vector>
@@ -10,12 +7,12 @@
 #include <mcl/stdint.hpp>
 
 #include "../rand_int.h"
-#include "dynarmic/common/fp/fpcr.h"
-#include "dynarmic/common/fp/fpsr.h"
-#include "dynarmic/common/fp/unpacked.h"
+#include "umbra/common/fp/fpcr.h"
+#include "umbra/common/fp/fpsr.h"
+#include "umbra/common/fp/unpacked.h"
 
-using namespace Dynarmic;
-using namespace Dynarmic::FP;
+using namespace Umbra;
+using namespace Umbra::FP;
 
 TEST_CASE("FPUnpack Tests", "[fp]") {
     const static std::vector<std::tuple<u32, std::tuple<FPType, bool, FPUnpacked>, u32>> test_cases{

@@ -1,18 +1,15 @@
-/* This file is part of the dynarmic project.
- * Copyright (c) 2022 MerryMage
- * SPDX-License-Identifier: 0BSD
- */
+/* SPDX-License-Identifier: 0BSD */
 
 #include <memory>
 
 #include <catch2/catch_test_macros.hpp>
 
 #include "./testenv.h"
-#include "dynarmic/frontend/A32/a32_location_descriptor.h"
-#include "dynarmic/interface/A32/a32.h"
-#include "dynarmic/interface/A32/coprocessor.h"
+#include "umbra/frontend/A32/a32_location_descriptor.h"
+#include "umbra/interface/A32/a32.h"
+#include "umbra/interface/A32/coprocessor.h"
 
-using namespace Dynarmic;
+using namespace Umbra;
 
 struct CP15State {
     u32 cp15_thread_uprw = 0;
@@ -22,9 +19,9 @@ struct CP15State {
     u32 cp15_data_memory_barrier = 0;    ///< dummy value
 };
 
-class TestCP15 final : public Dynarmic::A32::Coprocessor {
+class TestCP15 final : public Umbra::A32::Coprocessor {
 public:
-    using CoprocReg = Dynarmic::A32::CoprocReg;
+    using CoprocReg = Umbra::A32::CoprocReg;
 
     explicit TestCP15(CP15State&);
     ~TestCP15() override;
@@ -41,9 +38,9 @@ private:
     CP15State& state;
 };
 
-using Callback = Dynarmic::A32::Coprocessor::Callback;
-using CallbackOrAccessOneWord = Dynarmic::A32::Coprocessor::CallbackOrAccessOneWord;
-using CallbackOrAccessTwoWords = Dynarmic::A32::Coprocessor::CallbackOrAccessTwoWords;
+using Callback = Umbra::A32::Coprocessor::Callback;
+using CallbackOrAccessOneWord = Umbra::A32::Coprocessor::CallbackOrAccessOneWord;
+using CallbackOrAccessTwoWords = Umbra::A32::Coprocessor::CallbackOrAccessTwoWords;
 
 TestCP15::TestCP15(CP15State& state)
         : state(state) {}

@@ -1,7 +1,4 @@
-/* This file is part of the dynarmic project.
- * Copyright (c) 2018 MerryMage
- * SPDX-License-Identifier: 0BSD
- */
+/* SPDX-License-Identifier: 0BSD */
 
 #include <tuple>
 #include <vector>
@@ -10,11 +7,11 @@
 #include <mcl/stdint.hpp>
 
 #include "../rand_int.h"
-#include "dynarmic/common/fp/mantissa_util.h"
-#include "dynarmic/common/safe_ops.h"
+#include "umbra/common/fp/mantissa_util.h"
+#include "umbra/common/safe_ops.h"
 
-using namespace Dynarmic;
-using namespace Dynarmic::FP;
+using namespace Umbra;
+using namespace Umbra::FP;
 
 TEST_CASE("ResidualErrorOnRightShift", "[fp]") {
     const std::vector<std::tuple<u32, int, ResidualError>> test_cases{

@@ -1,7 +1,4 @@
-/* This file is part of the dynarmic project.
- * Copyright (c) 2018 MerryMage
- * SPDX-License-Identifier: 0BSD
- */
+/* SPDX-License-Identifier: 0BSD */
 
 #include <tuple>
 #include <vector>
@@ -10,13 +7,13 @@
 #include <mcl/stdint.hpp>
 
 #include "../rand_int.h"
-#include "dynarmic/common/fp/fpcr.h"
-#include "dynarmic/common/fp/fpsr.h"
-#include "dynarmic/common/fp/op.h"
-#include "dynarmic/common/fp/rounding_mode.h"
+#include "umbra/common/fp/fpcr.h"
+#include "umbra/common/fp/fpsr.h"
+#include "umbra/common/fp/op.h"
+#include "umbra/common/fp/rounding_mode.h"
 
-using namespace Dynarmic;
-using namespace Dynarmic::FP;
+using namespace Umbra;
+using namespace Umbra::FP;
 
 TEST_CASE("FPToFixed", "[fp]") {
     const std::vector<std::tuple<u32, size_t, u64, u32>> test_cases{

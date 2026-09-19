@@ -1,7 +1,4 @@
-/* This file is part of the dynarmic project.
- * Copyright (c) 2020 MerryMage
- * SPDX-License-Identifier: 0BSD
- */
+/* SPDX-License-Identifier: 0BSD */
 
 #include <cstring>
 #include <iomanip>
@@ -10,12 +7,12 @@
 #include <catch2/catch_test_macros.hpp>
 #include <mcl/assert.hpp>
 
-#include "dynarmic/frontend/A32/decoder/asimd.h"
-#include "dynarmic/frontend/A32/translate/impl/a32_translate_impl.h"
-#include "dynarmic/interface/A32/config.h"
-#include "dynarmic/ir/opcodes.h"
+#include "umbra/frontend/A32/decoder/asimd.h"
+#include "umbra/frontend/A32/translate/impl/a32_translate_impl.h"
+#include "umbra/interface/A32/config.h"
+#include "umbra/ir/opcodes.h"
 
-using namespace Dynarmic;
+using namespace Umbra;
 
 TEST_CASE("ASIMD Decoder: Ensure table order correctness", "[decode][a32][.]") {
     const auto table = A32::GetASIMDDecodeTable<A32::TranslatorVisitor>();

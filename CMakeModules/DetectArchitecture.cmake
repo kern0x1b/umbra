@@ -1,7 +1,7 @@
 include(CheckSymbolExists)
 
 if (CMAKE_OSX_ARCHITECTURES)
-    set(DYNARMIC_MULTIARCH_BUILD 1)
+    set(UMBRA_MULTIARCH_BUILD 1)
     set(ARCHITECTURE "${CMAKE_OSX_ARCHITECTURES}")
     return()
 endif()

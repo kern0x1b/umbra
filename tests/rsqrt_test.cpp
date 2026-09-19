@@ -1,16 +1,13 @@
-/* This file is part of the dynarmic project.
- * Copyright (c) 2021 MerryMage
- * SPDX-License-Identifier: 0BSD
- */
+/* SPDX-License-Identifier: 0BSD */
 
 #include <catch2/benchmark/catch_benchmark.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <fmt/printf.h>
 #include <mcl/stdint.hpp>
 
-#include "dynarmic/common/fp/fpcr.h"
-#include "dynarmic/common/fp/fpsr.h"
-#include "dynarmic/common/fp/op/FPRSqrtEstimate.h"
+#include "umbra/common/fp/fpcr.h"
+#include "umbra/common/fp/fpsr.h"
+#include "umbra/common/fp/op/FPRSqrtEstimate.h"
 
 extern "C" u32 rsqrt_inaccurate(u32);
 extern "C" u32 rsqrt_full(u32);
@@ -21,7 +18,7 @@ extern "C" u32 rsqrt_full_nb_gpr(u32);
 extern "C" u32 rsqrt_newton(u32);
 extern "C" u32 rsqrt_hack(u32);
 
-using namespace Dynarmic;
+using namespace Umbra;
 
 extern "C" u32 rsqrt_fallback(u32 value) {
     FP::FPCR fpcr;

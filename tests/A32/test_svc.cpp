@@ -1,7 +1,4 @@
-/* This file is part of the dynarmic project.
- * Copyright (c) 2022 MerryMage
- * SPDX-License-Identifier: 0BSD
- */
+/* SPDX-License-Identifier: 0BSD */
 
 #include <optional>
 
@@ -9,7 +6,7 @@
 
 #include "./testenv.h"
 
-using namespace Dynarmic;
+using namespace Umbra;
 
 class ArmSvcTestEnv : public ArmTestEnv {
 public:
