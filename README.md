@@ -1,7 +1,7 @@
-Shade JIT
-=========
+Umbra
+=====
 
-The ARM recompiler backend used by [Shade](https://github.com/kern0x1b/shade),
+The ARM JIT core under [Shade](https://github.com/kern0x1b/shade),
 Charon's iOS userland emulator.
 
 License: 0BSD (see LICENSE.txt). Vendored third-party components under
