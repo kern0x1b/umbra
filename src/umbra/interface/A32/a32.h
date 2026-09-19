@@ -173,7 +173,7 @@ public:
      * execution is stopped.
      */
     void GeneratePortableIR(std::uint64_t location_descriptor);
-    // iLEMU portable-IR patch state: GeneratePortableIR-v1.
+    // portable-IR patch state: GeneratePortableIR-v1.
 
     /**
      * Emits a previously optimized IR block without translating guest code.

@@ -97,7 +97,7 @@ struct UserCallbacks : public TranslateCallbacks {
     // IR that a backend would otherwise emit. The default lets existing
     // portable-IR consumers share their completed-translation handler.
     virtual void PortableIRGenerated(
-            // iLEMU portable-IR patch state: PortableIRGenerated-v1.
+            // portable-IR patch state: PortableIRGenerated-v1.
             std::uint64_t location_descriptor,
             std::uint64_t translation_nanoseconds,
             const Umbra::IR::Block& block) noexcept {

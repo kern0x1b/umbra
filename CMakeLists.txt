@@ -19,8 +19,8 @@ option(UMBRA_FATAL_ERRORS "Errors are fatal" OFF)
 option(UMBRA_IGNORE_ASSERTS "Ignore asserts" OFF)
 option(UMBRA_TESTS "Build tests" ${BUILD_TESTING})
 option(UMBRA_TESTS_USE_UNICORN "Enable fuzzing tests against unicorn" OFF)
-option(UMBRA_ENABLE_ILEMU_TEST_EMIT_FAILURE
-       "Compile iLEmu portable-emit fault injection hooks" OFF)
+option(UMBRA_ENABLE_TEST_EMIT_FAILURE
+       "Compile portable-emit fault injection hooks" OFF)
 option(UMBRA_USE_LLVM "Support disassembly of jitted x86_64 code using LLVM" OFF)
 option(UMBRA_USE_PRECOMPILED_HEADERS "Use precompiled headers" ON)
 option(UMBRA_USE_BUNDLED_EXTERNALS "Use all bundled externals (useful when e.g. cross-compiling)" OFF)

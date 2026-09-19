@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 
-#if defined(UMBRA_ENABLE_ILEMU_TEST_EMIT_FAILURE)
+#if defined(UMBRA_ENABLE_TEST_EMIT_FAILURE)
 #    include <cstdlib>
 #    include <cstring>
 #endif
@@ -72,7 +72,7 @@ using namespace Backend::Arm64;
     return block.HasTerminal() && IsEmittableTerminal(block.GetTerminal());
 }
 
-#if defined(UMBRA_ENABLE_ILEMU_TEST_EMIT_FAILURE)
+#if defined(UMBRA_ENABLE_TEST_EMIT_FAILURE)
 enum class TestEmitFailure : std::uint8_t {
     None,
     Before,
@@ -83,7 +83,7 @@ enum class TestEmitFailure : std::uint8_t {
 };
 
 [[nodiscard]] static TestEmitFailure ReadTestEmitFailure() noexcept {
-    const char* const value = std::getenv("ILEMU_UMBRA_TEST_EMIT_FAILURE");
+    const char* const value = std::getenv("UMBRA_TEST_EMIT_FAILURE");
     if (value == nullptr)
         return TestEmitFailure::None;
     if (std::strcmp(value, "before-once") == 0) {
@@ -290,7 +290,7 @@ struct NativeCodeSlab::Impl {
         code_cache_size = conf->code_cache_size;
         shared_mode = shared;
         initialize_code_segments();
-#if defined(UMBRA_ENABLE_ILEMU_TEST_EMIT_FAILURE)
+#if defined(UMBRA_ENABLE_TEST_EMIT_FAILURE)
         test_emit_failure = ReadTestEmitFailure();
 #endif
         initialized = true;
@@ -335,7 +335,7 @@ struct NativeCodeSlab::Impl {
     [[nodiscard]] BlockDescriptor emit(
         IR::Block& block, std::uint64_t expected_generation, bool caller_executing) {
         std::lock_guard lock{mutex};
-#if defined(UMBRA_ENABLE_ILEMU_TEST_EMIT_FAILURE)
+#if defined(UMBRA_ENABLE_TEST_EMIT_FAILURE)
         if (test_emit_failure == TestEmitFailure::Generation && !test_emit_failure_injected) {
             test_emit_failure_injected = true;
             request_generation_transition(
@@ -351,7 +351,7 @@ struct NativeCodeSlab::Impl {
                 existing, address_space->GetBlockSize(existing), current_generation,
                 false};
         }
-#if defined(UMBRA_ENABLE_ILEMU_TEST_EMIT_FAILURE)
+#if defined(UMBRA_ENABLE_TEST_EMIT_FAILURE)
         if (test_emit_failure == TestEmitFailure::Before && !test_emit_failure_injected) {
             test_emit_failure_injected = true;
             throw std::runtime_error{"injected portable emit failure before code"};
@@ -367,7 +367,7 @@ struct NativeCodeSlab::Impl {
         if (quiescent) {
             address_space->PublishPendingBlockRelinks();
         }
-#if defined(UMBRA_ENABLE_ILEMU_TEST_EMIT_FAILURE)
+#if defined(UMBRA_ENABLE_TEST_EMIT_FAILURE)
         if (test_emit_failure == TestEmitFailure::After && !test_emit_failure_injected) {
             test_emit_failure_injected = true;
             throw std::runtime_error{"injected portable emit failure after code"};
@@ -389,7 +389,7 @@ struct NativeCodeSlab::Impl {
 
     void ensure_memory_committed(std::size_t) {
         std::lock_guard lock{mutex};
-#if defined(UMBRA_ENABLE_ILEMU_TEST_EMIT_FAILURE)
+#if defined(UMBRA_ENABLE_TEST_EMIT_FAILURE)
         if (test_emit_failure == TestEmitFailure::Commit && !test_emit_failure_injected) {
             test_emit_failure_injected = true;
             throw std::runtime_error{"injected portable code commit failure"};
@@ -697,7 +697,7 @@ struct NativeCodeSlab::Impl {
     bool clear_pending{};
     GenerationTransitionKind pending_transition{
         GenerationTransitionKind::ClearAll};
-#if defined(UMBRA_ENABLE_ILEMU_TEST_EMIT_FAILURE)
+#if defined(UMBRA_ENABLE_TEST_EMIT_FAILURE)
     TestEmitFailure test_emit_failure{TestEmitFailure::None};
     bool test_emit_failure_injected{};
 #endif
